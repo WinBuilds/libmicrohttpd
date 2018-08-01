@@ -1,6 +1,6 @@
 /*
      This file is part of libmicrohttpd
-     (C) 2007, 2008 Christian Grothoff (and other contributing authors)
+     Copyright (C) 2007, 2008 Christian Grothoff (and other contributing authors)
 
      This library is free software; you can redistribute it and/or
      modify it under the terms of the GNU Lesser General Public
@@ -38,12 +38,14 @@ file_reader (void *cls, uint64_t pos, char *buf, size_t max)
   return fread (buf, 1, max, file);
 }
 
+
 static void
 free_callback (void *cls)
 {
   FILE *file = cls;
   fclose (file);
 }
+
 
 static int
 ahc_echo (void *cls,
@@ -58,7 +60,12 @@ ahc_echo (void *cls,
   struct MHD_Response *response;
   int ret;
   FILE *file;
+  int fd;
   struct stat buf;
+  (void)cls;               /* Unused. Silent compiler warning. */
+  (void)version;           /* Unused. Silent compiler warning. */
+  (void)upload_data;       /* Unused. Silent compiler warning. */
+  (void)upload_data_size;  /* Unused. Silent compiler warning. */
 
   if (0 != strcmp (method, MHD_HTTP_METHOD_GET))
     return MHD_NO;              /* unexpected method */
@@ -69,12 +76,26 @@ ahc_echo (void *cls,
       return MHD_YES;
     }
   *ptr = NULL;                  /* reset when done */
-  if ( (0 == stat (&url[1], &buf)) &&
-       (S_ISREG (buf.st_mode)) )
-    file = fopen (&url[1], "rb");
-  else
-    file = NULL;
-  if (file == NULL)
+
+  file = fopen (&url[1], "rb");
+  if (NULL != file)
+    {
+      fd = fileno (file);
+      if (-1 == fd)
+        {
+          (void) fclose (file);
+          return MHD_NO; /* internal error */
+        }
+      if ( (0 != fstat (fd, &buf)) ||
+           (! S_ISREG (buf.st_mode)) )
+        {
+          /* not a regular file, refuse to serve */
+          fclose (file);
+          file = NULL;
+        }
+    }
+
+  if (NULL == file)
     {
       response = MHD_create_response_from_buffer (strlen (PAGE),
 						  (void *) PAGE,
@@ -88,7 +109,7 @@ ahc_echo (void *cls,
                                                     &file_reader,
                                                     file,
                                                     &free_callback);
-      if (response == NULL)
+      if (NULL == response)
 	{
 	  fclose (file);
 	  return MHD_NO;
@@ -98,6 +119,7 @@ ahc_echo (void *cls,
     }
   return ret;
 }
+
 
 int
 main (int argc, char *const *argv)
@@ -109,15 +131,15 @@ main (int argc, char *const *argv)
   fd_set rs;
   fd_set ws;
   fd_set es;
-  int max;
-  unsigned MHD_LONG_LONG mhd_timeout;
+  MHD_socket max;
+  MHD_UNSIGNED_LONG_LONG mhd_timeout;
 
   if (argc != 3)
     {
       printf ("%s PORT SECONDS-TO-RUN\n", argv[0]);
       return 1;
     }
-  d = MHD_start_daemon (MHD_USE_DEBUG,
+  d = MHD_start_daemon (MHD_USE_ERROR_LOG,
                         atoi (argv[1]),
                         NULL, NULL, &ahc_echo, PAGE, MHD_OPTION_END);
   if (d == NULL)
@@ -134,15 +156,18 @@ main (int argc, char *const *argv)
       if (MHD_YES != MHD_get_fdset (d, &rs, &ws, &es, &max))
 	break; /* fatal internal error */
       if (MHD_get_timeout (d, &mhd_timeout) == MHD_YES)
-
         {
-          if (tv.tv_sec * 1000 < mhd_timeout)
+          if (((MHD_UNSIGNED_LONG_LONG)tv.tv_sec) < mhd_timeout / 1000LL)
             {
-              tv.tv_sec = mhd_timeout / 1000;
-              tv.tv_usec = (mhd_timeout - (tv.tv_sec * 1000)) * 1000;
+              tv.tv_sec = mhd_timeout / 1000LL;
+              tv.tv_usec = (mhd_timeout - (tv.tv_sec * 1000LL)) * 1000LL;
             }
         }
-      select (max + 1, &rs, &ws, &es, &tv);
+      if (-1 == select (max + 1, &rs, &ws, &es, &tv))
+        {
+          if (EINTR != errno)
+            abort ();
+        }
       MHD_run (d);
     }
   MHD_stop_daemon (d);

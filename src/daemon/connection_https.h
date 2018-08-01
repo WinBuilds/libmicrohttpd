@@ -1,6 +1,6 @@
 /*
      This file is part of libmicrohttpd
-     (C) 2008 Daniel Pittman and Christian Grothoff
+     Copyright (C) 2008 Daniel Pittman and Christian Grothoff
 
      This library is free software; you can redistribute it and/or
      modify it under the terms of the GNU Lesser General Public
@@ -28,8 +28,38 @@
 
 #include "internal.h"
 
-#if HTTPS_SUPPORT
-void MHD_set_https_callbacks (struct MHD_Connection *connection);
-#endif
+#ifdef HTTPS_SUPPORT
+/**
+ * Set connection callback function to be used through out
+ * the processing of this secure connection.
+ *
+ * @param connection which callbacks should be modified
+ */
+void 
+MHD_set_https_callbacks (struct MHD_Connection *connection);
+
+
+/**
+ * Give gnuTLS chance to work on the TLS handshake.
+ *
+ * @param connection connection to handshake on
+ * @return true if the handshake has completed successfully
+ *         and we should start to read/write data,
+ *         false is handshake in progress or in case
+ *         of error
+ */
+bool
+MHD_run_tls_handshake_ (struct MHD_Connection *connection);
+
+
+/**
+ * Initiate shutdown of TLS layer of connection.
+ *
+ * @param connection to use
+ * @return true if succeed, false otherwise.
+ */
+bool
+MHD_tls_connection_shutdown (struct MHD_Connection *connection);
+#endif /* HTTPS_SUPPORT */
 
 #endif

@@ -1,6 +1,6 @@
 /*
      This file is part of libmicrohttpd
-     (C) 2007, 2009 Daniel Pittman and Christian Grothoff
+     Copyright (C) 2007, 2009 Daniel Pittman and Christian Grothoff
 
      This library is free software; you can redistribute it and/or
      modify it under the terms of the GNU Lesser General Public
@@ -37,39 +37,53 @@
  */
 struct MemoryPool;
 
+
 /**
  * Create a memory pool.
  *
  * @param max maximum size of the pool
+ * @return NULL on error
  */
-struct MemoryPool *MHD_pool_create (size_t max);
+struct MemoryPool *
+MHD_pool_create (size_t max);
+
 
 /**
  * Destroy a memory pool.
+ *
+ * @param pool memory pool to destroy
  */
-void MHD_pool_destroy (struct MemoryPool *pool);
+void
+MHD_pool_destroy (struct MemoryPool *pool);
+
 
 /**
  * Allocate size bytes from the pool.
  *
- * @param from_end allocate from end of pool (set to MHD_YES);
+ * @param pool memory pool to use for the operation
+ * @param size number of bytes to allocate
+ * @param from_end allocate from end of pool (set to #MHD_YES);
  *        use this for small, persistent allocations that
  *        will never be reallocated
  * @return NULL if the pool cannot support size more
  *         bytes
  */
-void *MHD_pool_allocate (struct MemoryPool *pool,
-                         size_t size, int from_end);
+void *
+MHD_pool_allocate (struct MemoryPool *pool,
+		   size_t size,
+                   int from_end);
+
 
 /**
  * Reallocate a block of memory obtained from the pool.
  * This is particularly efficient when growing or
  * shrinking the block that was last (re)allocated.
- * If the given block is not the most recenlty
+ * If the given block is not the most recently
  * (re)allocated block, the memory of the previous
  * allocation may be leaked until the pool is
  * destroyed (and copying the data maybe required).
  *
+ * @param pool memory pool to use for the operation
  * @param old the existing block
  * @param old_size the size of the existing block
  * @param new_size the new size of the block
@@ -77,21 +91,40 @@ void *MHD_pool_allocate (struct MemoryPool *pool,
  *         NULL if the pool cannot support new_size
  *         bytes (old continues to be valid for old_size)
  */
-void *MHD_pool_reallocate (struct MemoryPool *pool,
-                           void *old,
-                           size_t old_size, 
-			   size_t new_size);
+void *
+MHD_pool_reallocate (struct MemoryPool *pool,
+		     void *old,
+		     size_t old_size,
+		     size_t new_size);
+
+
+/**
+ * Check how much memory is left in the @a pool
+ *
+ * @param pool pool to check
+ * @return number of bytes still available in @a pool
+ */
+size_t
+MHD_pool_get_free (struct MemoryPool *pool);
+
 
 /**
  * Clear all entries from the memory pool except
- * for "keep" of the given "size".
+ * for @a keep of the given @a copy_bytes.  The pointer
+ * returned should be a buffer of @a new_size where
+ * the first @a copy_bytes are from @a keep.
  *
+ * @param pool memory pool to use for the operation
  * @param keep pointer to the entry to keep (maybe NULL)
- * @param size how many bytes need to be kept at this address
- * @return addr new address of "keep" (if it had to change)
+ * @param copy_bytes how many bytes need to be kept at this address
+ * @param new_size how many bytes should the allocation we return have?
+ *                 (should be larger or equal to @a copy_bytes)
+ * @return addr new address of @a keep (if it had to change)
  */
-void *MHD_pool_reset (struct MemoryPool *pool,
-		      void *keep, 
-		      size_t size);
+void *
+MHD_pool_reset (struct MemoryPool *pool,
+		void *keep,
+		size_t copy_bytes,
+                size_t new_size);
 
 #endif

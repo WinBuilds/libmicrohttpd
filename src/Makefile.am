@@ -1,3 +1,4 @@
+# This Makefile.am is in the public domain
 if HAVE_CURL
 curltests = testcurl
 if HAVE_ZZUF
@@ -6,4 +7,16 @@ zzuftests = testzzuf
 endif
 endif
 endif
-SUBDIRS = include daemon examples $(curltests) $(zzuftests) . 
+
+SUBDIRS = include microhttpd $(curltests) $(zzuftests) .
+
+if BUILD_EXAMPLES
+SUBDIRS += examples
+endif
+
+# Finally (last!) also build experimental lib...
+SUBDIRS += lib
+
+EXTRA_DIST = \
+ datadir/cert-and-key.pem \
+ datadir/cert-and-key-for-wireshark.pem 

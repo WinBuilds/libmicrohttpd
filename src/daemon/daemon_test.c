@@ -25,13 +25,14 @@
  */
 
 #include "platform.h"
-#include "platform.h"
 #include "microhttpd.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 
-#ifndef WINDOWS
+#ifdef WINDOWS
+#include <ws2tcpip.h>
+#else
 #include <unistd.h>
 #endif
 
@@ -91,7 +92,7 @@ testExternalRun ()
 {
   struct MHD_Daemon *d;
   fd_set rs;
-  int maxfd;
+  MHD_socket maxfd;
   int i;
 
   d = MHD_start_daemon (MHD_USE_DEBUG,

@@ -1,6 +1,6 @@
 /*
      This file is part of libmicrohttpd
-     (C) 2007, 2009, 2011 Christian Grothoff
+     Copyright (C) 2007, 2009, 2011 Christian Grothoff
 
      libmicrohttpd is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published
@@ -14,8 +14,8 @@
 
      You should have received a copy of the GNU General Public License
      along with libmicrohttpd; see the file COPYING.  If not, write to the
-     Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-     Boston, MA 02111-1307, USA.
+     Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+     Boston, MA 02110-1301, USA.
 */
 
 /**
@@ -28,7 +28,7 @@
  *        so the performance scores calculated with this code
  *        should NOT be used to compare with other HTTP servers
  *        (since MHD is actually better); only the relative
- *        scores between MHD versions are meaningful.  
+ *        scores between MHD versions are meaningful.
  *        Furthermore, this code ONLY tests MHD processing
  *        a single request at a time.  This is again
  *        not universally meaningful (i.e. when comparing
@@ -48,6 +48,13 @@
 #ifndef WINDOWS
 #include <unistd.h>
 #include <sys/socket.h>
+#endif
+
+#if defined(CPU_COUNT) && (CPU_COUNT+0) < 2
+#undef CPU_COUNT
+#endif
+#if !defined(CPU_COUNT)
+#define CPU_COUNT 2
 #endif
 
 /**
@@ -73,16 +80,16 @@ static unsigned long long start_time;
 
 
 /**
- * Get the current timestamp 
+ * Get the current timestamp
  *
  * @return current time in ms
  */
-static unsigned long long 
+static unsigned long long
 now ()
 {
   struct timeval tv;
 
-  GETTIMEOFDAY (&tv, NULL);
+  gettimeofday (&tv, NULL);
   return (((unsigned long long) tv.tv_sec * 1000LL) +
 	  ((unsigned long long) tv.tv_usec / 1000LL));
 }
@@ -91,7 +98,7 @@ now ()
 /**
  * Start the timer.
  */
-static void 
+static void
 start_timer()
 {
   start_time = now ();
@@ -103,7 +110,7 @@ start_timer()
  *
  * @param desc description of the threading mode we used
  */
-static void 
+static void
 stop (const char *desc)
 {
   double rps = ((double) (ROUNDS * 1000)) / ((double) (now() - start_time));
@@ -129,8 +136,8 @@ struct CBC
 
 
 static size_t
-copyBuffer (void *ptr, 
-	    size_t size, size_t nmemb, 
+copyBuffer (void *ptr,
+	    size_t size, size_t nmemb,
 	    void *ctx)
 {
   struct CBC *cbc = ctx;
@@ -154,6 +161,8 @@ ahc_echo (void *cls,
   static int ptr;
   const char *me = cls;
   int ret;
+  (void)url;(void)version;                      /* Unused. Silent compiler warning. */
+  (void)upload_data;(void)upload_data_size;     /* Unused. Silent compiler warning. */
 
   if (0 != strcmp (me, method))
     return MHD_NO;              /* unexpected method */
@@ -181,14 +190,24 @@ testInternalGet (int port, int poll_flag)
   unsigned int i;
   char url[64];
 
-  sprintf(url, "http://127.0.0.1:%d/hello_world", port);
+  if (MHD_NO != MHD_is_feature_supported(MHD_FEATURE_AUTODETECT_BIND_PORT))
+    port = 0;
 
   cbc.buf = buf;
   cbc.size = 2048;
-  d = MHD_start_daemon (MHD_USE_SELECT_INTERNALLY | MHD_USE_DEBUG  | poll_flag,
+  d = MHD_start_daemon (MHD_USE_INTERNAL_POLLING_THREAD | MHD_USE_ERROR_LOG  | poll_flag,
                         port, NULL, NULL, &ahc_echo, "GET", MHD_OPTION_END);
   if (d == NULL)
     return 1;
+  if (0 == port)
+    {
+      const union MHD_DaemonInfo *dinfo;
+      dinfo = MHD_get_daemon_info (d, MHD_DAEMON_INFO_BIND_PORT);
+      if (NULL == dinfo || 0 == dinfo->port)
+        { MHD_stop_daemon (d); return 32; }
+      port = (int)dinfo->port;
+    }
+  sprintf(url, "http://127.0.0.1:%d/hello_world", port);
   start_timer ();
   for (i=0;i<ROUNDS;i++)
     {
@@ -199,7 +218,7 @@ testInternalGet (int port, int poll_flag)
       curl_easy_setopt (c, CURLOPT_WRITEDATA, &cbc);
       curl_easy_setopt (c, CURLOPT_FAILONERROR, 1);
       curl_easy_setopt (c, CURLOPT_TIMEOUT, 150L);
-      curl_easy_setopt (c, CURLOPT_CONNECTTIMEOUT, 15L);
+      curl_easy_setopt (c, CURLOPT_CONNECTTIMEOUT, 150L);
       if (oneone)
 	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
       else
@@ -219,7 +238,9 @@ testInternalGet (int port, int poll_flag)
 	}
       curl_easy_cleanup (c);
     }
-  stop (poll_flag ? "internal poll" : "internal select");
+  stop (poll_flag == MHD_USE_AUTO ? "internal thread with 'auto'" :
+        poll_flag == MHD_USE_POLL ? "internal thread with poll()" :
+	poll_flag == MHD_USE_EPOLL ? "internal thread with epoll" : "internal thread with select()");
   MHD_stop_daemon (d);
   if (cbc.pos != strlen ("/hello_world"))
     return 4;
@@ -240,14 +261,24 @@ testMultithreadedGet (int port, int poll_flag)
   unsigned int i;
   char url[64];
 
-  sprintf(url, "http://127.0.0.1:%d/hello_world", port);
+  if (MHD_NO != MHD_is_feature_supported(MHD_FEATURE_AUTODETECT_BIND_PORT))
+    port = 0;
 
   cbc.buf = buf;
   cbc.size = 2048;
-  d = MHD_start_daemon (MHD_USE_THREAD_PER_CONNECTION | MHD_USE_DEBUG  | poll_flag,
+  d = MHD_start_daemon (MHD_USE_THREAD_PER_CONNECTION | MHD_USE_INTERNAL_POLLING_THREAD | MHD_USE_ERROR_LOG  | poll_flag,
                         port, NULL, NULL, &ahc_echo, "GET", MHD_OPTION_END);
   if (d == NULL)
     return 16;
+  if (0 == port)
+    {
+      const union MHD_DaemonInfo *dinfo;
+      dinfo = MHD_get_daemon_info (d, MHD_DAEMON_INFO_BIND_PORT);
+      if (NULL == dinfo || 0 == dinfo->port)
+        { MHD_stop_daemon (d); return 32; }
+      port = (int)dinfo->port;
+    }
+  sprintf(url, "http://127.0.0.1:%d/hello_world", port);
   start_timer ();
   for (i=0;i<ROUNDS;i++)
     {
@@ -262,7 +293,7 @@ testMultithreadedGet (int port, int poll_flag)
 	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
       else
 	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
-      curl_easy_setopt (c, CURLOPT_CONNECTTIMEOUT, 15L);
+      curl_easy_setopt (c, CURLOPT_CONNECTTIMEOUT, 150L);
       /* NOTE: use of CONNECTTIMEOUT without also
 	 setting NOSIGNAL results in really weird
 	 crashes on my system! */
@@ -278,7 +309,10 @@ testMultithreadedGet (int port, int poll_flag)
 	}
       curl_easy_cleanup (c);
     }
-  stop (poll_flag ? "thread with poll" : "thread with select");
+  stop ((poll_flag & MHD_USE_AUTO) ? "internal thread with 'auto' and thread per connection" :
+        (poll_flag & MHD_USE_POLL) ? "internal thread with poll() and thread per connection" :
+	(poll_flag & MHD_USE_EPOLL) ? "internal thread with epoll and thread per connection" :
+	    "internal thread with select() and thread per connection");
   MHD_stop_daemon (d);
   if (cbc.pos != strlen ("/hello_world"))
     return 64;
@@ -298,15 +332,25 @@ testMultithreadedPoolGet (int port, int poll_flag)
   unsigned int i;
   char url[64];
 
-  sprintf(url, "http://127.0.0.1:%d/hello_world", port);
+  if (MHD_NO != MHD_is_feature_supported(MHD_FEATURE_AUTODETECT_BIND_PORT))
+    port = 0;
 
   cbc.buf = buf;
   cbc.size = 2048;
-  d = MHD_start_daemon (MHD_USE_SELECT_INTERNALLY | MHD_USE_DEBUG | poll_flag,
+  d = MHD_start_daemon (MHD_USE_INTERNAL_POLLING_THREAD | MHD_USE_ERROR_LOG | poll_flag,
                         port, NULL, NULL, &ahc_echo, "GET",
-                        MHD_OPTION_THREAD_POOL_SIZE, 4, MHD_OPTION_END);
+                        MHD_OPTION_THREAD_POOL_SIZE, CPU_COUNT, MHD_OPTION_END);
   if (d == NULL)
     return 16;
+  if (0 == port)
+    {
+      const union MHD_DaemonInfo *dinfo;
+      dinfo = MHD_get_daemon_info (d, MHD_DAEMON_INFO_BIND_PORT);
+      if (NULL == dinfo || 0 == dinfo->port)
+        { MHD_stop_daemon (d); return 32; }
+      port = (int)dinfo->port;
+    }
+  sprintf(url, "http://127.0.0.1:%d/hello_world", port);
   start_timer ();
   for (i=0;i<ROUNDS;i++)
     {
@@ -321,7 +365,7 @@ testMultithreadedPoolGet (int port, int poll_flag)
 	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
       else
 	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
-      curl_easy_setopt (c, CURLOPT_CONNECTTIMEOUT, 15L);
+      curl_easy_setopt (c, CURLOPT_CONNECTTIMEOUT, 150L);
       /* NOTE: use of CONNECTTIMEOUT without also
 	 setting NOSIGNAL results in really weird
 	 crashes on my system!*/
@@ -337,7 +381,9 @@ testMultithreadedPoolGet (int port, int poll_flag)
 	}
       curl_easy_cleanup (c);
     }
-  stop (poll_flag ? "thread pool with poll" : "thread pool with select");
+  stop (0 != (poll_flag & MHD_USE_AUTO) ? "internal thread pool with 'auto'" :
+        0 != (poll_flag & MHD_USE_POLL) ? "internal thread pool with poll()" :
+	0 != (poll_flag & MHD_USE_EPOLL) ? "internal thread pool with epoll" : "internal thread pool with select()");
   MHD_stop_daemon (d);
   if (cbc.pos != strlen ("/hello_world"))
     return 64;
@@ -358,7 +404,12 @@ testExternalGet (int port)
   fd_set rs;
   fd_set ws;
   fd_set es;
-  int max;
+  MHD_socket maxsock;
+#ifdef MHD_WINSOCK_SOCKETS
+  int maxposixs; /* Max socket number unused on W32 */
+#else  /* MHD_POSIX_SOCKETS */
+#define maxposixs maxsock
+#endif /* MHD_POSIX_SOCKETS */
   int running;
   struct CURLMsg *msg;
   time_t start;
@@ -366,15 +417,25 @@ testExternalGet (int port)
   unsigned int i;
   char url[64];
 
-  sprintf(url, "http://127.0.0.1:%d/hello_world", port);
+  if (MHD_NO != MHD_is_feature_supported(MHD_FEATURE_AUTODETECT_BIND_PORT))
+    port = 0;
 
   multi = NULL;
   cbc.buf = buf;
   cbc.size = 2048;
-  d = MHD_start_daemon (MHD_USE_DEBUG,
+  d = MHD_start_daemon (MHD_USE_ERROR_LOG,
                         port, NULL, NULL, &ahc_echo, "GET", MHD_OPTION_END);
   if (d == NULL)
     return 256;
+  if (0 == port)
+    {
+      const union MHD_DaemonInfo *dinfo;
+      dinfo = MHD_get_daemon_info (d, MHD_DAEMON_INFO_BIND_PORT);
+      if (NULL == dinfo || 0 == dinfo->port)
+        { MHD_stop_daemon (d); return 32; }
+      port = (int)dinfo->port;
+    }
+  sprintf(url, "http://127.0.0.1:%d/hello_world", port);
   start_timer ();
   multi = curl_multi_init ();
   if (multi == NULL)
@@ -395,7 +456,7 @@ testExternalGet (int port)
       else
 	curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
       curl_easy_setopt (c, CURLOPT_TIMEOUT, 150L);
-      curl_easy_setopt (c, CURLOPT_CONNECTTIMEOUT, 15L);
+      curl_easy_setopt (c, CURLOPT_CONNECTTIMEOUT, 150L);
       /* NOTE: use of CONNECTTIMEOUT without also
 	 setting NOSIGNAL results in really weird
 	 crashes on my system! */
@@ -411,12 +472,13 @@ testExternalGet (int port)
       start = time (NULL);
       while ((time (NULL) - start < 5) && (c != NULL))
 	{
-	  max = 0;
+	  maxsock = MHD_INVALID_SOCKET;
+	  maxposixs = -1;
 	  FD_ZERO (&rs);
 	  FD_ZERO (&ws);
 	  FD_ZERO (&es);
 	  curl_multi_perform (multi, &running);
-	  mret = curl_multi_fdset (multi, &rs, &ws, &es, &max);
+	  mret = curl_multi_fdset (multi, &rs, &ws, &es, &maxposixs);
 	  if (mret != CURLM_OK)
 	    {
 	      curl_multi_remove_handle (multi, c);
@@ -425,7 +487,7 @@ testExternalGet (int port)
 	      MHD_stop_daemon (d);
 	      return 2048;
 	    }
-	  if (MHD_YES != MHD_get_fdset (d, &rs, &ws, &es, &max))
+	  if (MHD_YES != MHD_get_fdset (d, &rs, &ws, &es, &maxsock))
 	    {
 	      curl_multi_remove_handle (multi, c);
 	      curl_multi_cleanup (multi);
@@ -435,7 +497,17 @@ testExternalGet (int port)
 	    }
 	  tv.tv_sec = 0;
 	  tv.tv_usec = 1000;
-	  select (max + 1, &rs, &ws, &es, &tv);
+	  if (-1 == select (maxposixs + 1, &rs, &ws, &es, &tv))
+            {
+#ifdef MHD_POSIX_SOCKETS
+              if (EINTR != errno)
+                abort ();
+#else
+              if (WSAEINVAL != WSAGetLastError() || 0 != rs.fd_count || 0 != ws.fd_count || 0 != es.fd_count)
+                abort ();
+              Sleep (1000);
+#endif
+            }
 	  curl_multi_perform (multi, &running);
 	  if (running == 0)
 	    {
@@ -454,7 +526,16 @@ testExternalGet (int port)
 		  c = NULL;
 		}
 	    }
-	  MHD_run (d);
+	  /* two possibilities here; as select sets are
+	     tiny, this makes virtually no difference
+	     in actual runtime right now, even though the
+	     number of select calls is virtually cut in half
+	     (and 'select' is the most expensive of our system
+	     calls according to 'strace') */
+	  if (0)
+	    MHD_run (d);
+	  else
+	    MHD_run_from_select (d, &rs, &ws, &es);
 	}
       if (NULL != c)
 	{
@@ -481,21 +562,36 @@ int
 main (int argc, char *const *argv)
 {
   unsigned int errorCount = 0;
-  int port = 1081;
+  int port = 1130;
+  (void)argc;   /* Unused. Silent compiler warning. */
 
-  oneone = NULL != strstr (argv[0], "11");
+  oneone = (NULL != strrchr (argv[0], (int) '/')) ?
+    (NULL != strstr (strrchr (argv[0], (int) '/'), "11")) : 0;
+  if (oneone)
+    port += 15;
   if (0 != curl_global_init (CURL_GLOBAL_WIN32))
     return 2;
   response = MHD_create_response_from_buffer (strlen ("/hello_world"),
 					      "/hello_world",
 					      MHD_RESPMEM_MUST_COPY);
+  errorCount += testExternalGet (port++);
+  errorCount += testInternalGet (port++, MHD_USE_AUTO);
+  errorCount += testMultithreadedGet (port++, MHD_USE_AUTO);
+  errorCount += testMultithreadedPoolGet (port++, MHD_USE_AUTO);
   errorCount += testInternalGet (port++, 0);
   errorCount += testMultithreadedGet (port++, 0);
   errorCount += testMultithreadedPoolGet (port++, 0);
-  errorCount += testExternalGet (port++);
-  errorCount += testInternalGet (port++, MHD_USE_POLL);
-  errorCount += testMultithreadedGet (port++, MHD_USE_POLL);
-  errorCount += testMultithreadedPoolGet (port++, MHD_USE_POLL);
+  if (MHD_YES == MHD_is_feature_supported(MHD_FEATURE_POLL))
+    {
+      errorCount += testInternalGet(port++, MHD_USE_POLL);
+      errorCount += testMultithreadedGet(port++, MHD_USE_POLL);
+      errorCount += testMultithreadedPoolGet(port++, MHD_USE_POLL);
+    }
+  if (MHD_YES == MHD_is_feature_supported(MHD_FEATURE_EPOLL))
+    {
+      errorCount += testInternalGet(port++, MHD_USE_EPOLL);
+      errorCount += testMultithreadedPoolGet(port++, MHD_USE_EPOLL);
+    }
   MHD_destroy_response (response);
   if (errorCount != 0)
     fprintf (stderr, "Error (code: %u)\n", errorCount);

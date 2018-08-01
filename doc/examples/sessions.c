@@ -1,30 +1,8 @@
-/*
-     This file is part of libmicrohttpd
-     (C) 2011 Christian Grothoff (and other contributing authors)
-
-     This library is free software; you can redistribute it and/or
-     modify it under the terms of the GNU Lesser General Public
-     License as published by the Free Software Foundation; either
-     version 2.1 of the License, or (at your option) any later version.
-
-     This library is distributed in the hope that it will be useful,
-     but WITHOUT ANY WARRANTY; without even the implied warranty of
-     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-     Lesser General Public License for more details.
-
-     You should have received a copy of the GNU Lesser General Public
-     License along with this library; if not, write to the Free Software
-     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
-/**
- * @file post_example.c
- * @brief example for processing POST requests using libmicrohttpd
- * @author Christian Grothoff
- */
+/* Feel free to use this example code in any way
+   you see fit (Public Domain) */
 
 /* needed for asprintf */
 #define _GNU_SOURCE
-
 
 #include <stdlib.h>
 #include <string.h>
@@ -32,6 +10,46 @@
 #include <errno.h>
 #include <time.h>
 #include <microhttpd.h>
+
+#if defined _WIN32 && !defined(__MINGW64_VERSION_MAJOR)
+static int
+asprintf (char **resultp, const char *format, ...)
+{
+  va_list argptr;
+  char *result = NULL;
+  int len = 0;
+
+  if (format == NULL)
+    return -1;
+
+  va_start (argptr, format);
+
+  len = _vscprintf ((char *) format, argptr);
+  if (len >= 0)
+  {
+    len += 1;
+    result = (char *) malloc (sizeof (char *) * len);
+    if (result != NULL)
+    {
+      int len2 = _vscprintf ((char *) format, argptr);
+      if (len2 != len - 1 || len2 <= 0)
+      {
+        free (result);
+        result = NULL;
+        len = -1;
+      }
+      else
+      {
+        len = len2;
+        if (resultp)
+          *resultp = result;
+      }
+    }
+  }
+  va_end (argptr);
+  return len;
+}
+#endif
 
 /**
  * Invalid method page.
@@ -80,7 +98,7 @@ struct Session
   struct Session *next;
 
   /**
-   * Unique ID for this session. 
+   * Unique ID for this session.
    */
   char sid[33];
 
@@ -126,7 +144,7 @@ struct Request
   struct MHD_PostProcessor *pp;
 
   /**
-   * URL to serve in response to this POST (if this request 
+   * URL to serve in response to this POST (if this request
    * was a 'POST')
    */
   const char *post_url;
@@ -144,7 +162,7 @@ static struct Session *sessions;
 
 
 /**
- * Return the session handle for this connection, or 
+ * Return the session handle for this connection, or
  * create one if this is a new user.
  */
 static struct Session *
@@ -175,20 +193,20 @@ get_session (struct MHD_Connection *connection)
   /* create fresh session */
   ret = calloc (1, sizeof (struct Session));
   if (NULL == ret)
-    {						
+    {
       fprintf (stderr, "calloc error: %s\n", strerror (errno));
-      return NULL; 
+      return NULL;
     }
   /* not a super-secure way to generate a random session ID,
      but should do for a simple example... */
   snprintf (ret->sid,
 	    sizeof (ret->sid),
 	    "%X%X%X%X",
-	    (unsigned int) random (),
-	    (unsigned int) random (),
-	    (unsigned int) random (),
-	    (unsigned int) random ());
-  ret->rc++;  
+	    (unsigned int) rand (),
+	    (unsigned int) rand (),
+	    (unsigned int) rand (),
+	    (unsigned int) rand ());
+  ret->rc++;
   ret->start = time (NULL);
   ret->next = sessions;
   sessions = ret;
@@ -213,7 +231,7 @@ typedef int (*PageHandler)(const void *cls,
 
 /**
  * Entry we generate for each page served.
- */ 
+ */
 struct Page
 {
   /**
@@ -233,7 +251,7 @@ struct Page
 
   /**
    * Extra argument to handler.
-   */ 
+   */
   const void *handler_cls;
 };
 
@@ -243,7 +261,7 @@ struct Page
  *
  * @param session session to use
  * @param response response to modify
- */ 
+ */
 static void
 add_session_cookie (struct Session *session,
 		    struct MHD_Response *response)
@@ -254,12 +272,12 @@ add_session_cookie (struct Session *session,
 	    "%s=%s",
 	    COOKIE_NAME,
 	    session->sid);
-  if (MHD_NO == 
+  if (MHD_NO ==
       MHD_add_response_header (response,
 			       MHD_HTTP_HEADER_SET_COOKIE,
 			       cstr))
     {
-      fprintf (stderr, 
+      fprintf (stderr,
 	       "Failed to set session cookie header!\n");
     }
 }
@@ -271,7 +289,7 @@ add_session_cookie (struct Session *session,
  *
  * @param cls a 'const char *' with the HTML webpage to return
  * @param mime mime type to use
- * @param session session handle 
+ * @param session session handle
  * @param connection connection to use
  */
 static int
@@ -292,8 +310,8 @@ serve_simple_form (const void *cls,
   MHD_add_response_header (response,
 			   MHD_HTTP_HEADER_CONTENT_ENCODING,
 			   mime);
-  ret = MHD_queue_response (connection, 
-			    MHD_HTTP_OK, 
+  ret = MHD_queue_response (connection,
+			    MHD_HTTP_OK,
 			    response);
   MHD_destroy_response (response);
   return ret;
@@ -305,7 +323,7 @@ serve_simple_form (const void *cls,
  *
  * @param cls a 'const char *' with the HTML webpage to return
  * @param mime mime type to use
- * @param session session handle 
+ * @param session session handle
  * @param connection connection to use
  */
 static int
@@ -334,8 +352,8 @@ fill_v1_form (const void *cls,
   MHD_add_response_header (response,
 			   MHD_HTTP_HEADER_CONTENT_ENCODING,
 			   mime);
-  ret = MHD_queue_response (connection, 
-			    MHD_HTTP_OK, 
+  ret = MHD_queue_response (connection,
+			    MHD_HTTP_OK,
 			    response);
   MHD_destroy_response (response);
   return ret;
@@ -347,7 +365,7 @@ fill_v1_form (const void *cls,
  *
  * @param cls a 'const char *' with the HTML webpage to return
  * @param mime mime type to use
- * @param session session handle 
+ * @param session session handle
  * @param connection connection to use
  */
 static int
@@ -377,8 +395,8 @@ fill_v1_v2_form (const void *cls,
   MHD_add_response_header (response,
 			   MHD_HTTP_HEADER_CONTENT_ENCODING,
 			   mime);
-  ret = MHD_queue_response (connection, 
-			    MHD_HTTP_OK, 
+  ret = MHD_queue_response (connection,
+			    MHD_HTTP_OK,
 			    response);
   MHD_destroy_response (response);
   return ret;
@@ -390,7 +408,7 @@ fill_v1_v2_form (const void *cls,
  *
  * @param cls a 'const char *' with the HTML webpage to return
  * @param mime mime type to use
- * @param session session handle 
+ * @param session session handle
  * @param connection connection to use
  */
 static int
@@ -401,13 +419,15 @@ not_found_page (const void *cls,
 {
   int ret;
   struct MHD_Response *response;
+  (void)cls;     /* Unused. Silent compiler warning. */
+  (void)session; /* Unused. Silent compiler warning. */
 
   /* unsupported HTTP method */
   response = MHD_create_response_from_buffer (strlen (NOT_FOUND_ERROR),
 					      (void *) NOT_FOUND_ERROR,
 					      MHD_RESPMEM_PERSISTENT);
-  ret = MHD_queue_response (connection, 
-			    MHD_HTTP_NOT_FOUND, 
+  ret = MHD_queue_response (connection,
+			    MHD_HTTP_NOT_FOUND,
 			    response);
   MHD_add_response_header (response,
 			   MHD_HTTP_HEADER_CONTENT_ENCODING,
@@ -420,7 +440,7 @@ not_found_page (const void *cls,
 /**
  * List of all pages served by this HTTP server.
  */
-static struct Page pages[] = 
+static struct Page pages[] =
   {
     { "/", "text/html",  &fill_v1_form, MAIN_PAGE },
     { "/2", "text/html", &fill_v1_v2_form, SECOND_PAGE },
@@ -461,6 +481,10 @@ post_iterator (void *cls,
 {
   struct Request *request = cls;
   struct Session *session = request->session;
+  (void)kind;               /* Unused. Silent compiler warning. */
+  (void)filename;           /* Unused. Silent compiler warning. */
+  (void)content_type;       /* Unused. Silent compiler warning. */
+  (void)transfer_encoding;  /* Unused. Silent compiler warning. */
 
   if (0 == strcmp ("DONE", key))
     {
@@ -504,6 +528,7 @@ post_iterator (void *cls,
  *
  * @param cls argument given together with the function
  *        pointer when the handler was registered with MHD
+ * @param connection handle to connection which is being processed
  * @param url the requested url
  * @param method the HTTP method used ("GET", "PUT", etc.)
  * @param version the HTTP version string (i.e. "HTTP/1.1")
@@ -517,7 +542,7 @@ post_iterator (void *cls,
  * @param upload_data_size set initially to the size of the
  *        upload_data provided; the method must update this
  *        value to the number of bytes NOT processed;
- * @param con_cls pointer that the callback can set to some
+ * @param ptr pointer that the callback can set to some
  *        address and that will be preserved by MHD for future
  *        calls for this request; since the access handler may
  *        be called many times (i.e., for a PUT/POST operation
@@ -537,7 +562,7 @@ create_response (void *cls,
 		 const char *url,
 		 const char *method,
 		 const char *version,
-		 const char *upload_data, 
+		 const char *upload_data,
 		 size_t *upload_data_size,
 		 void **ptr)
 {
@@ -546,6 +571,8 @@ create_response (void *cls,
   struct Session *session;
   int ret;
   unsigned int i;
+  (void)cls;               /* Unused. Silent compiler warning. */
+  (void)version;           /* Unused. Silent compiler warning. */
 
   request = *ptr;
   if (NULL == request)
@@ -583,7 +610,7 @@ create_response (void *cls,
   session = request->session;
   session->start = time (NULL);
   if (0 == strcmp (method, MHD_HTTP_METHOD_POST))
-    {      
+    {
       /* evaluate POST data */
       MHD_post_process (request->pp,
 			upload_data,
@@ -609,7 +636,7 @@ create_response (void *cls,
       while ( (pages[i].url != NULL) &&
 	      (0 != strcmp (pages[i].url, url)) )
 	i++;
-      ret = pages[i].handler (pages[i].handler_cls, 
+      ret = pages[i].handler (pages[i].handler_cls,
 			      pages[i].mime,
 			      session, connection);
       if (ret != MHD_YES)
@@ -621,8 +648,8 @@ create_response (void *cls,
   response = MHD_create_response_from_buffer (strlen (METHOD_ERROR),
 					      (void *) METHOD_ERROR,
 					      MHD_RESPMEM_PERSISTENT);
-  ret = MHD_queue_response (connection, 
-			    MHD_HTTP_METHOD_NOT_ACCEPTABLE, 
+  ret = MHD_queue_response (connection,
+			    MHD_HTTP_NOT_ACCEPTABLE,
 			    response);
   MHD_destroy_response (response);
   return ret;
@@ -645,6 +672,9 @@ request_completed_callback (void *cls,
 			    enum MHD_RequestTerminationCode toe)
 {
   struct Request *request = *con_cls;
+  (void)cls;         /* Unused. Silent compiler warning. */
+  (void)connection;  /* Unused. Silent compiler warning. */
+  (void)toe;         /* Unused. Silent compiler warning. */
 
   if (NULL == request)
     return;
@@ -686,7 +716,7 @@ expire_sessions ()
       else
         prev = pos;
       pos = next;
-    }      
+    }
 }
 
 
@@ -703,8 +733,8 @@ main (int argc, char *const *argv)
   fd_set rs;
   fd_set ws;
   fd_set es;
-  int max;
-  unsigned MHD_LONG_LONG mhd_timeout;
+  MHD_socket max;
+  MHD_UNSIGNED_LONG_LONG mhd_timeout;
 
   if (argc != 2)
     {
@@ -712,11 +742,11 @@ main (int argc, char *const *argv)
       return 1;
     }
   /* initialize PRNG */
-  srandom ((unsigned int) time (NULL));
-  d = MHD_start_daemon (MHD_USE_DEBUG,
+  srand ((unsigned int) time (NULL));
+  d = MHD_start_daemon (MHD_USE_ERROR_LOG,
                         atoi (argv[1]),
-                        NULL, NULL, 
-			&create_response, NULL, 
+                        NULL, NULL,
+			&create_response, NULL,
 			MHD_OPTION_CONNECTION_TIMEOUT, (unsigned int) 15,
 			MHD_OPTION_NOTIFY_COMPLETED, &request_completed_callback, NULL,
 			MHD_OPTION_END);
@@ -731,18 +761,24 @@ main (int argc, char *const *argv)
       FD_ZERO (&es);
       if (MHD_YES != MHD_get_fdset (d, &rs, &ws, &es, &max))
 	break; /* fatal internal error */
-      if (MHD_get_timeout (d, &mhd_timeout) == MHD_YES)	
+      if (MHD_get_timeout (d, &mhd_timeout) == MHD_YES)
 	{
 	  tv.tv_sec = mhd_timeout / 1000;
 	  tv.tv_usec = (mhd_timeout - (tv.tv_sec * 1000)) * 1000;
-	  tvp = &tv;	  
+	  tvp = &tv;
 	}
       else
 	tvp = NULL;
-      select (max + 1, &rs, &ws, &es, tvp);
+      if (-1 == select (max + 1, &rs, &ws, &es, tvp))
+	{
+	  if (EINTR != errno)
+	    fprintf (stderr,
+		     "Aborting due to error during select: %s\n",
+		     strerror (errno));
+	  break;
+	}
       MHD_run (d);
     }
   MHD_stop_daemon (d);
   return 0;
 }
-

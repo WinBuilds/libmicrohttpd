@@ -1,7 +1,17 @@
+/* Feel free to use this example code in any way
+   you see fit (Public Domain) */
+
 #include <sys/types.h>
+#ifndef _WIN32
 #include <sys/select.h>
 #include <sys/socket.h>
+#else
+#include <winsock2.h>
+#endif
 #include <microhttpd.h>
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #define PORT 8888
 
@@ -13,13 +23,13 @@
 #define SERVERCERTFILE "server.pem"
 
 
-char *
+static char *
 string_to_base64 (const char *message)
 {
   const char *lookup =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
   unsigned long l;
-  int i;
+  size_t i;
   char *tmp;
   size_t length = strlen (message);
 
@@ -73,6 +83,7 @@ get_file_size (const char *filename)
     return 0;
 }
 
+
 static char *
 load_file (const char *filename)
 {
@@ -81,21 +92,22 @@ load_file (const char *filename)
   long size;
 
   size = get_file_size (filename);
-  if (size == 0)
+  if (0 == size)
     return NULL;
 
   fp = fopen (filename, "rb");
-  if (!fp)
+  if (! fp)
     return NULL;
 
-  buffer = malloc (size);
-  if (!buffer)
+  buffer = malloc (size + 1);
+  if (! buffer)
     {
       fclose (fp);
       return NULL;
     }
+  buffer[size] = '\0';
 
-  if (size != fread (buffer, 1, size, fp))
+  if (size != (long)fread (buffer, 1, size, fp))
     {
       free (buffer);
       buffer = NULL;
@@ -105,50 +117,59 @@ load_file (const char *filename)
   return buffer;
 }
 
+
 static int
 ask_for_authentication (struct MHD_Connection *connection, const char *realm)
 {
   int ret;
   struct MHD_Response *response;
   char *headervalue;
+  size_t slen;
   const char *strbase = "Basic realm=";
 
-  response = MHD_create_response_from_buffer (0, NULL, 
+  response = MHD_create_response_from_buffer (0, NULL,
 					      MHD_RESPMEM_PERSISTENT);
   if (!response)
     return MHD_NO;
 
-  headervalue = malloc (strlen (strbase) + strlen (realm) + 1);
-  if (!headervalue)
+  slen = strlen (strbase) + strlen (realm) + 1;
+  if (NULL == (headervalue = malloc (slen)))
     return MHD_NO;
-
-  strcpy (headervalue, strbase);
-  strcat (headervalue, realm);
-
-  ret = MHD_add_response_header (response, "WWW-Authenticate", headervalue);
+  snprintf (headervalue,
+	    slen,
+	    "%s%s",
+	    strbase,
+	    realm);
+  ret = MHD_add_response_header (response,
+				 "WWW-Authenticate",
+				 headervalue);
   free (headervalue);
-  if (!ret)
+  if (! ret)
     {
       MHD_destroy_response (response);
       return MHD_NO;
     }
 
-  ret = MHD_queue_response (connection, MHD_HTTP_UNAUTHORIZED, response);
-
+  ret = MHD_queue_response (connection,
+			    MHD_HTTP_UNAUTHORIZED,
+			    response);
   MHD_destroy_response (response);
-
   return ret;
 }
 
+
 static int
 is_authenticated (struct MHD_Connection *connection,
-                  const char *username, const char *password)
+                  const char *username,
+		  const char *password)
 {
   const char *headervalue;
-  char *expected_b64, *expected;
+  char *expected_b64;
+  char *expected;
   const char *strbase = "Basic ";
   int authenticated;
-
+  size_t slen;
+  
   headervalue =
     MHD_lookup_connection_value (connection, MHD_HEADER_KIND,
                                  "Authorization");
@@ -157,14 +178,14 @@ is_authenticated (struct MHD_Connection *connection,
   if (0 != strncmp (headervalue, strbase, strlen (strbase)))
     return 0;
 
-  expected = malloc (strlen (username) + 1 + strlen (password) + 1);
-  if (NULL == expected)
+  slen = strlen (username) + 1 + strlen (password) + 1;
+  if (NULL == (expected = malloc (slen)))
     return 0;
-
-  strcpy (expected, username);
-  strcat (expected, ":");
-  strcat (expected, password);
-
+  snprintf (expected,
+	    slen,
+	    "%s:%s",
+	    username,
+	    password);
   expected_b64 = string_to_base64 (expected);
   free (expected);
   if (NULL == expected_b64)
@@ -172,9 +193,7 @@ is_authenticated (struct MHD_Connection *connection,
 
   authenticated =
     (strcmp (headervalue + strlen (strbase), expected_b64) == 0);
-
   free (expected_b64);
-
   return authenticated;
 }
 
@@ -187,7 +206,7 @@ secret_page (struct MHD_Connection *connection)
   const char *page = "<html><body>A secret.</body></html>";
 
   response =
-    MHD_create_response_from_buffer (strlen (page), (void *) page, 
+    MHD_create_response_from_buffer (strlen (page), (void *) page,
 				     MHD_RESPMEM_PERSISTENT);
   if (!response)
     return MHD_NO;
@@ -205,6 +224,12 @@ answer_to_connection (void *cls, struct MHD_Connection *connection,
                       const char *version, const char *upload_data,
                       size_t *upload_data_size, void **con_cls)
 {
+  (void)cls;               /* Unused. Silent compiler warning. */
+  (void)url;               /* Unused. Silent compiler warning. */
+  (void)version;           /* Unused. Silent compiler warning. */
+  (void)upload_data;       /* Unused. Silent compiler warning. */
+  (void)upload_data_size;  /* Unused. Silent compiler warning. */
+
   if (0 != strcmp (method, "GET"))
     return MHD_NO;
   if (NULL == *con_cls)
@@ -233,11 +258,15 @@ main ()
   if ((key_pem == NULL) || (cert_pem == NULL))
     {
       printf ("The key/certificate files could not be read.\n");
+      if (NULL != key_pem)
+        free (key_pem);
+      if (NULL != cert_pem)
+        free (cert_pem);
       return 1;
     }
 
   daemon =
-    MHD_start_daemon (MHD_USE_SELECT_INTERNALLY | MHD_USE_SSL, PORT, NULL,
+    MHD_start_daemon (MHD_USE_INTERNAL_POLLING_THREAD | MHD_USE_TLS, PORT, NULL,
                       NULL, &answer_to_connection, NULL,
                       MHD_OPTION_HTTPS_MEM_KEY, key_pem,
                       MHD_OPTION_HTTPS_MEM_CERT, cert_pem, MHD_OPTION_END);
@@ -251,7 +280,7 @@ main ()
       return 1;
     }
 
-  getchar ();
+  (void) getchar ();
 
   MHD_stop_daemon (daemon);
   free (key_pem);

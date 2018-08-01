@@ -45,12 +45,14 @@ extern "C" {
 #define HAVE_PLIBC_FD 0
 
 #ifdef WINDOWS
+typedef unsigned int _mode_t;
 
 #if ENABLE_NLS
   #include "langinfo.h"
 #endif
 
 #include <windows.h>
+#include <winsock2.h>
 #include <ws2tcpip.h>
 #include <sys/types.h>
 #include <time.h>

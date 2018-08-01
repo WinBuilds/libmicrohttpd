@@ -1,6 +1,6 @@
 /*
      This file is part of libmicrohttpd
-     (C) 2010 Christian Grothoff (and other contributing authors)
+     Copyright (C) 2010 Christian Grothoff (and other contributing authors)
 
      This library is free software; you can redistribute it and/or
      modify it under the terms of the GNU Lesser General Public
@@ -30,7 +30,7 @@
 
 #define DENIED "<html><head><title>libmicrohttpd demo</title></head><body>Access denied</body></html>"
 
-#define OPAQUE "11733b200778ce33060f31c9af70a870ba96ddd4"
+#define MY_OPAQUE_STR "11733b200778ce33060f31c9af70a870ba96ddd4"
 
 static int
 ahc_echo (void *cls,
@@ -45,53 +45,61 @@ ahc_echo (void *cls,
   const char *password = "testpass";
   const char *realm = "test@example.com";
   int ret;
+  (void)cls;               /* Unused. Silent compiler warning. */
+  (void)url;               /* Unused. Silent compiler warning. */
+  (void)method;            /* Unused. Silent compiler warning. */
+  (void)version;           /* Unused. Silent compiler warning. */
+  (void)upload_data;       /* Unused. Silent compiler warning. */
+  (void)upload_data_size;  /* Unused. Silent compiler warning. */
+  (void)ptr;               /* Unused. Silent compiler warning. */
 
   username = MHD_digest_auth_get_username(connection);
-  if (username == NULL) 
+  if (NULL == username)
     {
-      response = MHD_create_response_from_buffer(strlen (DENIED), 
+      response = MHD_create_response_from_buffer(strlen (DENIED),
 						 DENIED,
-						 MHD_RESPMEM_PERSISTENT);  
+						 MHD_RESPMEM_PERSISTENT);
       ret = MHD_queue_auth_fail_response(connection, realm,
-					 OPAQUE,
+					 MY_OPAQUE_STR,
 					 response,
-					 MHD_NO);    
-      MHD_destroy_response(response);  
+					 MHD_NO);
+      MHD_destroy_response(response);
       return ret;
     }
   ret = MHD_digest_auth_check(connection, realm,
-			      username, 
-			      password, 
+			      username,
+			      password,
 			      300);
-  free(username);
+  MHD_free (username);
   if ( (ret == MHD_INVALID_NONCE) ||
        (ret == MHD_NO) )
     {
-      response = MHD_create_response_from_buffer(strlen (DENIED), 
+      response = MHD_create_response_from_buffer(strlen (DENIED),
 						 DENIED,
-						 MHD_RESPMEM_PERSISTENT);  
-      if (NULL == response) 
+						 MHD_RESPMEM_PERSISTENT);
+      if (NULL == response)
 	return MHD_NO;
       ret = MHD_queue_auth_fail_response(connection, realm,
-					 OPAQUE,
+					 MY_OPAQUE_STR,
 					 response,
-					 (ret == MHD_INVALID_NONCE) ? MHD_YES : MHD_NO);  
-      MHD_destroy_response(response);  
+					 (ret == MHD_INVALID_NONCE) ? MHD_YES : MHD_NO);
+      MHD_destroy_response(response);
       return ret;
     }
   response = MHD_create_response_from_buffer(strlen(PAGE), PAGE,
 					     MHD_RESPMEM_PERSISTENT);
-  ret = MHD_queue_response(connection, MHD_HTTP_OK, response);  
+  ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
   MHD_destroy_response(response);
   return ret;
 }
+
 
 int
 main (int argc, char *const *argv)
 {
   int fd;
   char rnd[8];
-  size_t len;
+  ssize_t len;
   size_t off;
   struct MHD_Daemon *d;
 
@@ -123,7 +131,7 @@ main (int argc, char *const *argv)
       off += len;
     }
   (void) close(fd);
-  d = MHD_start_daemon (MHD_USE_THREAD_PER_CONNECTION | MHD_USE_DEBUG,
+  d = MHD_start_daemon (MHD_USE_THREAD_PER_CONNECTION | MHD_USE_INTERNAL_POLLING_THREAD | MHD_USE_ERROR_LOG,
                         atoi (argv[1]),
                         NULL, NULL, &ahc_echo, PAGE,
 			MHD_OPTION_DIGEST_AUTH_RANDOM, sizeof(rnd), rnd,

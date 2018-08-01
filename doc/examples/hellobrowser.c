@@ -1,7 +1,16 @@
+/* Feel free to use this example code in any way
+   you see fit (Public Domain) */
+
 #include <sys/types.h>
+#ifndef _WIN32
 #include <sys/select.h>
 #include <sys/socket.h>
+#else
+#include <winsock2.h>
+#endif
+#include <string.h>
 #include <microhttpd.h>
+#include <stdio.h>
 
 #define PORT 8888
 
@@ -14,7 +23,14 @@ answer_to_connection (void *cls, struct MHD_Connection *connection,
   const char *page = "<html><body>Hello, browser!</body></html>";
   struct MHD_Response *response;
   int ret;
-  
+  (void)cls;               /* Unused. Silent compiler warning. */
+  (void)url;               /* Unused. Silent compiler warning. */
+  (void)method;            /* Unused. Silent compiler warning. */
+  (void)version;           /* Unused. Silent compiler warning. */
+  (void)upload_data;       /* Unused. Silent compiler warning. */
+  (void)upload_data_size;  /* Unused. Silent compiler warning. */
+  (void)con_cls;           /* Unused. Silent compiler warning. */
+
   response =
     MHD_create_response_from_buffer (strlen (page), (void *) page, 
 				     MHD_RESPMEM_PERSISTENT);
@@ -24,17 +40,18 @@ answer_to_connection (void *cls, struct MHD_Connection *connection,
   return ret;
 }
 
+
 int
-main ()
+main (void)
 {
   struct MHD_Daemon *daemon;
 
-  daemon = MHD_start_daemon (MHD_USE_SELECT_INTERNALLY, PORT, NULL, NULL,
+  daemon = MHD_start_daemon (MHD_USE_AUTO | MHD_USE_INTERNAL_POLLING_THREAD, PORT, NULL, NULL,
                              &answer_to_connection, NULL, MHD_OPTION_END);
   if (NULL == daemon)
     return 1;
 
-  getchar ();
+  (void) getchar ();
 
   MHD_stop_daemon (daemon);
   return 0;

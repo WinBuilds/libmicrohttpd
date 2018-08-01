@@ -1,6 +1,6 @@
 /*
  This file is part of libmicrohttpd
- (C) 2007 Christian Grothoff
+ Copyright (C) 2007 Christian Grothoff
 
  libmicrohttpd is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published
@@ -14,8 +14,8 @@
 
  You should have received a copy of the GNU General Public License
  along with libmicrohttpd; see the file COPYING.  If not, write to the
- Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- Boston, MA 02111-1307, USA.
+ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ Boston, MA 02110-1301, USA.
  */
 
 #ifndef TLS_TEST_COMMON_H_
@@ -31,8 +31,6 @@
 /* this enables verbos CURL version checking */
 #define DEBUG_HTTPS_TEST 0
 #define CURL_VERBOS_LEVEL 0
-
-#define DEAMON_TEST_PORT 42433
 
 #define test_data "Hello World\n"
 #define ca_cert_file_name "tmp_ca_cert.pem"
@@ -51,6 +49,7 @@
 struct https_test_data
 {
   void *cls;
+  int port;
   const char *cipher_suite;
   int proto_version;
 };
@@ -69,23 +68,29 @@ struct CipherDef
 };
 
 
-int curl_check_version (const char *req_version, ...);
-int curl_uses_nss_ssl ();
+int
+curl_check_version (const char *req_version, ...);
+
+int
+curl_uses_nss_ssl (void);
 
 
 FILE *
-setup_ca_cert ();
+setup_ca_cert (void);
 
 /**
  * perform cURL request for file
  */
 int
-test_daemon_get (void * cls, char *cipher_suite, int proto_version,
+test_daemon_get (void * cls,
+		 const char *cipher_suite, int proto_version,
                  int port, int ver_peer);
 
-void print_test_result (int test_outcome, char *test_name);
+void
+print_test_result (int test_outcome, char *test_name);
 
-size_t copyBuffer (void *ptr, size_t size, size_t nmemb, void *ctx);
+size_t
+copyBuffer (void *ptr, size_t size, size_t nmemb, void *ctx);
 
 int
 http_ahc (void *cls, struct MHD_Connection *connection,
@@ -98,19 +103,33 @@ http_dummy_ahc (void *cls, struct MHD_Connection *connection,
                 const char *version, size_t *upload_data_size,
                 void **ptr);
 
-int gen_test_file_url (char *url, int port);
+
+/**
+ * compile test file url pointing to the current running directory path
+ *
+ * @param[out] url - char buffer into which the url is compiled
+ * @param url_len number of bytes available in @a url
+ * @param port port to use for the test
+ * @return -1 on error
+ */
+int
+gen_test_file_url (char *url,
+                   size_t url_len,
+                   int port);
 
 int
 send_curl_req (char *url, struct CBC *cbc, const char *cipher_suite,
                int proto_version);
 
 int
-test_https_transfer (void *cls, const char *cipher_suite, int proto_version);
+test_https_transfer (void *cls, int port, const char *cipher_suite, int proto_version);
 
 int
-setup_testcase (struct MHD_Daemon **d, int daemon_flags, va_list arg_list);
+setup_testcase (struct MHD_Daemon **d, int port, int daemon_flags, va_list arg_list);
 
-void teardown_testcase (struct MHD_Daemon *d);
+void
+teardown_testcase (struct MHD_Daemon *d);
+
 
 int
 setup_session (gnutls_session_t * session,
@@ -126,7 +145,11 @@ teardown_session (gnutls_session_t session,
 
 int
 test_wrap (const char *test_name, int
-           (*test_function) (void * cls, const char *cipher_suite,
-                             int proto_version), void *test_function_cls,
+           (*test_function) (void * cls, int port, const char *cipher_suite,
+                             int proto_version), void * cls,
+           int port,
            int daemon_flags, const char *cipher_suite, int proto_version, ...);
+
+int testsuite_curl_global_init (void);
+
 #endif /* TLS_TEST_COMMON_H_ */

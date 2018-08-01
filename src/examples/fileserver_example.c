@@ -1,6 +1,6 @@
 /*
      This file is part of libmicrohttpd
-     (C) 2007 Christian Grothoff (and other contributing authors)
+     Copyright (C) 2007 Christian Grothoff (and other contributing authors)
 
      This library is free software; you can redistribute it and/or
      modify it under the terms of the GNU Lesser General Public
@@ -16,7 +16,6 @@
      License along with this library; if not, write to the Free Software
      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
-
 /**
  * @file fileserver_example.c
  * @brief minimal example for how to use libmicrohttpd to serve files
@@ -25,25 +24,21 @@
 
 #include "platform.h"
 #include <microhttpd.h>
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif /* HAVE_UNISTD_H */
+#ifdef HAVE_SYS_STAT_H
+#include <sys/stat.h>
+#endif /* HAVE_SYS_STAT_H */
+#ifdef HAVE_FCNTL_H
+#include <fcntl.h>
+#endif /* HAVE_FCNTL_H */
 
 #define PAGE "<html><head><title>File not found</title></head><body>File not found</body></html>"
 
-static ssize_t
-file_reader (void *cls, uint64_t pos, char *buf, size_t max)
-{
-  FILE *file = cls;
-
-  (void)  fseek (file, pos, SEEK_SET);
-  return fread (buf, 1, max, file);
-}
-
-static void
-free_callback (void *cls)
-{
-  FILE *file = cls;
-  fclose (file);
-}
+#ifndef S_ISREG
+#define S_ISREG(x) (S_IFREG == (x & S_IFREG))
+#endif /* S_ISREG */
 
 static int
 ahc_echo (void *cls,
@@ -57,10 +52,15 @@ ahc_echo (void *cls,
   static int aptr;
   struct MHD_Response *response;
   int ret;
-  FILE *file;
+  int fd;
   struct stat buf;
+  (void)cls;               /* Unused. Silent compiler warning. */
+  (void)version;           /* Unused. Silent compiler warning. */
+  (void)upload_data;       /* Unused. Silent compiler warning. */
+  (void)upload_data_size;  /* Unused. Silent compiler warning. */
 
-  if (0 != strcmp (method, MHD_HTTP_METHOD_GET))
+  if ( (0 != strcmp (method, MHD_HTTP_METHOD_GET)) &&
+       (0 != strcmp (method, MHD_HTTP_METHOD_HEAD)) )
     return MHD_NO;              /* unexpected method */
   if (&aptr != *ptr)
     {
@@ -69,11 +69,26 @@ ahc_echo (void *cls,
       return MHD_YES;
     }
   *ptr = NULL;                  /* reset when done */
-  if (0 == stat (&url[1], &buf))
-    file = fopen (&url[1], "rb");
+  /* WARNING: direct usage of url as filename is for example only!
+   * NEVER pass received data directly as parameter to file manipulation
+   * functions. Always check validity of data before using.
+   */
+  if (NULL != strstr(url, "../")) /* Very simplified check! */
+    fd = -1; /* Do not allow usage of parent directories. */
   else
-    file = NULL;
-  if (file == NULL)
+    fd = open (url + 1, O_RDONLY);
+  if (-1 != fd)
+    {
+      if ( (0 != fstat (fd, &buf)) ||
+           (! S_ISREG (buf.st_mode)) )
+        {
+          /* not a regular file, refuse to serve */
+          if (0 != close (fd))
+            abort ();
+          fd = -1;
+        }
+    }
+  if (-1 == fd)
     {
       response = MHD_create_response_from_buffer (strlen (PAGE),
 						  (void *) PAGE,
@@ -83,13 +98,11 @@ ahc_echo (void *cls,
     }
   else
     {
-      response = MHD_create_response_from_callback (buf.st_size, 32 * 1024,     /* 32k page size */
-                                                    &file_reader,
-                                                    file,
-                                                    &free_callback);
-      if (response == NULL)
+      response = MHD_create_response_from_fd64 (buf.st_size, fd);
+      if (NULL == response)
 	{
-	  fclose (file);
+	  if (0 != close (fd))
+            abort ();
 	  return MHD_NO;
 	}
       ret = MHD_queue_response (connection, MHD_HTTP_OK, response);
@@ -97,6 +110,7 @@ ahc_echo (void *cls,
     }
   return ret;
 }
+
 
 int
 main (int argc, char *const *argv)
@@ -108,7 +122,7 @@ main (int argc, char *const *argv)
       printf ("%s PORT\n", argv[0]);
       return 1;
     }
-  d = MHD_start_daemon (MHD_USE_THREAD_PER_CONNECTION | MHD_USE_DEBUG,
+  d = MHD_start_daemon (MHD_USE_THREAD_PER_CONNECTION | MHD_USE_INTERNAL_POLLING_THREAD | MHD_USE_ERROR_LOG,
                         atoi (argv[1]),
                         NULL, NULL, &ahc_echo, PAGE, MHD_OPTION_END);
   if (d == NULL)

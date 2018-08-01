@@ -1,6 +1,6 @@
 /*
      This file is part of libmicrohttpd
-     (C) 2007 Daniel Pittman and Christian Grothoff
+     Copyright (C) 2007 Daniel Pittman and Christian Grothoff
 
      This library is free software; you can redistribute it and/or
      modify it under the terms of the GNU Lesser General Public
@@ -28,10 +28,30 @@
 #define RESPONSE_H
 
 /**
- * Increment response RC.  Should this be part of the
- * public API?
+ * Increments the reference counter for the @a response.
+ *
+ * @param response object to modify
  */
-void MHD_increment_response_rc (struct MHD_Response *response);
+void
+MHD_increment_response_rc (struct MHD_Response *response);
+
+
+/**
+ * We are done sending the header of a given response
+ * to the client.  Now it is time to perform the upgrade
+ * and hand over the connection to the application.
+ * @remark To be called only from thread that process connection's
+ * recv(), send() and response. Must be called right after sending
+ * response headers.
+ *
+ * @param response the response that was created for an upgrade
+ * @param connection the specific connection we are upgrading
+ * @return #MHD_YES on success, #MHD_NO on failure (will cause
+ *        connection to be closed)
+ */
+int
+MHD_response_execute_upgrade_ (struct MHD_Response *response,
+                               struct MHD_Connection *connection);
 
 
 #endif

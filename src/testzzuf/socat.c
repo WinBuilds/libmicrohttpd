@@ -1,6 +1,6 @@
 /*
      This file is part of libmicrohttpd
-     (C) 2008 Christian Grothoff
+     Copyright (C) 2008,2016 Christian Grothoff
 
      libmicrohttpd is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published
@@ -14,8 +14,8 @@
 
      You should have received a copy of the GNU General Public License
      along with libmicrohttpd; see the file COPYING.  If not, write to the
-     Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-     Boston, MA 02111-1307, USA.
+     Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+     Boston, MA 02110-1301, USA.
 */
 
 /**
@@ -28,6 +28,13 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <signal.h>
+
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN 1
+#endif /* !WIN32_LEAN_AND_MEAN */
+#include <windows.h>
+#endif
 
 
 /**
@@ -51,7 +58,6 @@ zzuf_socat_start ()
     "--ratio=0.0:0.75",
     "-n",
     "-A",
-    "--",
     "socat",
     "-lf",
     "/dev/null",
@@ -67,7 +73,7 @@ zzuf_socat_start ()
     }
   if (zzuf_pid != 0)
     {
-      sleep (1);                /* allow zzuf and socat to start */
+      (void)sleep (1);                /* allow zzuf and socat to start */
       status = 0;
       if (0 < waitpid (zzuf_pid, &status, WNOHANG))
         {
@@ -82,7 +88,7 @@ zzuf_socat_start ()
         }
       return;
     }
-  setpgrp ();
+  setpgid (0, 0);
   execvp ("zzuf", args);
   fprintf (stderr, "execution of `zzuf' failed: %s\n", strerror (errno));
   zzuf_pid = 0;                 /* fork failed */
@@ -100,7 +106,7 @@ zzuf_socat_stop ()
         fprintf (stderr, "Failed to killpg: %s\n", strerror (errno));
       kill (zzuf_pid, SIGINT);
       waitpid (zzuf_pid, &status, 0);
-      sleep (1);                /* allow socat to also die in peace */
+      (void)sleep (1);                /* allow socat to also die in peace */
     }
 }
 

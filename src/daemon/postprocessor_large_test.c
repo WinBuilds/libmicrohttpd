@@ -28,9 +28,7 @@
 #include "microhttpd.h"
 #include "internal.h"
 
-#ifndef WINDOWS
-#include <unistd.h>
-#endif
+#include "mhd_compat.h"
 
 static int
 value_checker (void *cls,
@@ -41,7 +39,7 @@ value_checker (void *cls,
                const char *transfer_encoding,
                const char *data, uint64_t off, size_t size)
 {
-  unsigned int *pos = cls;
+  size_t *pos = cls;
 #if 0
   fprintf (stderr,
            "VC: %llu %u `%s' `%s' `%s' `%s' `%.*s'\n",
@@ -83,7 +81,7 @@ test_simple_large ()
   size = strlen (data);
   while (i < size)
     {
-      delta = 1 + RANDOM () % (size - i);
+      delta = 1 + MHD_random_ () % (size - i);
       MHD_post_process (pp, &data[i], delta);
       i += delta;
     }

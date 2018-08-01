@@ -1,5 +1,7 @@
 Primary developers:
 Christian Grothoff <christian@grothoff.org> (maintainer)
+Evgeny Grin (Karlson2k) <k2k@narod.ru> (maintainer)
+Andrey Uzunov <andrey.uzunov@gmail.com> (libmicrospdy experiment)
 Nils Durner <durner@gnunet.org> (W32 port)
 Sagie Amir (TLS/SSL support using GNUtls)
 Richard Alimi <rich@velvetsea.net> (performance)
@@ -21,6 +23,10 @@ Matthew Moore
 Colin Caughie <c.caughie@indigovision.com>
 David Carvalho <andaris@gmail.com>
 David Reiss <dreiss@facebook.com>
+Markus Doppelbauer <doppelbauer@gmx.net>
+Matt Holiday
+Michael Cronenworth <mike@cchtml.com>
+Milan Straka <straka@ufal.mff.cuni.cz>
 Mika Raento <mikie@iki.fi>
 Mike Crowe <mac@mcrowe.com>
 John Muth <muth@parascale.com>
@@ -38,8 +44,27 @@ LRN <lrn1986@gmail.com>
 Sven Geggus <sts@fuchsschwanzdomain.de>
 Steve Wolf <stevewolf6@gmail.com>
 Brecht Sanders <brecht@sanders.org>
+Jan Janak <jan@janakj.org>
+Matthew Mundell <matthew.mundell@greenbone.net>
+Scott Goldman <scottjg@github.com>
+Jared Cantwell
+Luke-Jr <luke@dashjr.org>
+Sree Harsha Totakura <sreeharsha@totakura.in>
+Hani Benhabiles <kroosec@gmail.com>
+Guy Martin <gmsoft@tuxicoman.be>
+Robert Groenenberg <robert.groenenberg@broadforward.com>
+Denis Dowling <denis.dowling@hsd.com.au>
+Louis Benoit <louisbenoit@videotron.ca>
+Flavio Coelin <flavio.ceolin@intel.com>
+Silvio Clecio <silvioprog@gmail.com>
+Robert D Kosisko <rkocisko@gmail.com>
 
 Documentation contributions also came from:
 Marco Maggi <marco.maggi-ipsu@poste.it>
 Sebastian Gerhardt <sebgerhardt@gmx.net>
 
+Special thanks to:
+Florian Weimer <fweimer@redhat.com>
+Ramakrishnan Muthukrishnan <ram@leastauthority.com>
+Gervasa Markham <grev@mozilla.com>
+Liz Steininger <liz@leastauthority.com>

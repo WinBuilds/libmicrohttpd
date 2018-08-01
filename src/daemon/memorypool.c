@@ -1,6 +1,6 @@
 /*
      This file is part of libmicrohttpd
-     (C) 2007, 2009, 2010 Daniel Pittman and Christian Grothoff
+     Copyright (C) 2007, 2009, 2010 Daniel Pittman and Christian Grothoff
 
      This library is free software; you can redistribute it and/or
      modify it under the terms of the GNU Lesser General Public
@@ -42,6 +42,11 @@
  */
 #define ROUND_TO_ALIGN(n) ((n+(ALIGN_SIZE-1)) & (~(ALIGN_SIZE-1)))
 
+
+/**
+ * Handle for a memory pool.  Pools are not reentrant and must not be
+ * used by multiple threads.
+ */
 struct MemoryPool
 {
 
@@ -66,15 +71,32 @@ struct MemoryPool
   size_t end;
 
   /**
-   * MHD_NO if pool was malloc'ed, MHD_YES if mmapped.
+   * #MHD_NO if pool was malloc'ed, #MHD_YES if mmapped (VirtualAlloc'ed for W32).
    */
   int is_mmap;
 };
+
+
+/**
+ * Free the memory given by @a ptr. Calls "free(ptr)".  This function
+ * should be used to free the username returned by
+ * #MHD_digest_auth_get_username().
+ * @note Since v0.9.56
+ *
+ * @param ptr pointer to free.
+ */
+_MHD_EXTERN void
+MHD_free (void *ptr)
+{
+  free (ptr);
+}
+
 
 /**
  * Create a memory pool.
  *
  * @param max maximum size of the pool
+ * @return NULL on error
  */
 struct MemoryPool *
 MHD_pool_create (size_t max)
@@ -82,18 +104,33 @@ MHD_pool_create (size_t max)
   struct MemoryPool *pool;
 
   pool = malloc (sizeof (struct MemoryPool));
-  if (pool == NULL)
+  if (NULL == pool)
     return NULL;
-#ifdef MAP_ANONYMOUS
-  pool->memory = MMAP (NULL, max, PROT_READ | PROT_WRITE,
-                       MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+#if defined(MAP_ANONYMOUS) || defined(_WIN32)
+  if (max <= 32 * 1024)
+    pool->memory = MAP_FAILED;
+  else
+#if defined(MAP_ANONYMOUS) && !defined(_WIN32)
+    pool->memory = mmap (NULL,
+                         max,
+                         PROT_READ | PROT_WRITE,
+			 MAP_PRIVATE | MAP_ANONYMOUS,
+                         -1,
+                         0);
+#elif defined(_WIN32)
+    pool->memory = VirtualAlloc (NULL,
+                                 max,
+                                 MEM_COMMIT | MEM_RESERVE,
+                                 PAGE_READWRITE);
+#endif
 #else
   pool->memory = MAP_FAILED;
 #endif
-  if ((pool->memory == MAP_FAILED) || (pool->memory == NULL))
+  if ( (MAP_FAILED == pool->memory) ||
+       (NULL == pool->memory))
     {
       pool->memory = malloc (max);
-      if (pool->memory == NULL)
+      if (NULL == pool->memory)
         {
           free (pool);
           return NULL;
@@ -110,132 +147,194 @@ MHD_pool_create (size_t max)
   return pool;
 }
 
+
 /**
  * Destroy a memory pool.
+ *
+ * @param pool memory pool to destroy
  */
 void
 MHD_pool_destroy (struct MemoryPool *pool)
 {
-  if (pool == NULL)
+  if (NULL == pool)
     return;
-  if (pool->is_mmap == MHD_NO)
+  if (MHD_NO == pool->is_mmap)
     free (pool->memory);
   else
-    MUNMAP (pool->memory, pool->size);
+#if defined(MAP_ANONYMOUS) && !defined(_WIN32)
+    munmap (pool->memory,
+            pool->size);
+#elif defined(_WIN32)
+    VirtualFree (pool->memory,
+                 0,
+                 MEM_RELEASE);
+#else
+    abort ();
+#endif
   free (pool);
 }
 
+
+/**
+ * Check how much memory is left in the @a pool
+ *
+ * @param pool pool to check
+ * @return number of bytes still available in @a pool
+ */
+size_t
+MHD_pool_get_free (struct MemoryPool *pool)
+{
+  return (pool->end - pool->pos);
+}
+
+
 /**
  * Allocate size bytes from the pool.
+ *
+ * @param pool memory pool to use for the operation
+ * @param size number of bytes to allocate
+ * @param from_end allocate from end of pool (set to #MHD_YES);
+ *        use this for small, persistent allocations that
+ *        will never be reallocated
  * @return NULL if the pool cannot support size more
  *         bytes
  */
 void *
-MHD_pool_allocate (struct MemoryPool *pool, 
-		   size_t size, int from_end)
+MHD_pool_allocate (struct MemoryPool *pool,
+		   size_t size,
+                   int from_end)
 {
   void *ret;
+  size_t asize;
 
-  size = ROUND_TO_ALIGN (size);
-  if ((pool->pos + size > pool->end) || (pool->pos + size < pool->pos))
+  asize = ROUND_TO_ALIGN (size);
+  if ( (0 == asize) && (0 != size) )
+    return NULL; /* size too close to SIZE_MAX */
+  if ( (pool->pos + asize > pool->end) ||
+       (pool->pos + asize < pool->pos))
     return NULL;
   if (from_end == MHD_YES)
     {
-      ret = &pool->memory[pool->end - size];
-      pool->end -= size;
+      ret = &pool->memory[pool->end - asize];
+      pool->end -= asize;
     }
   else
     {
       ret = &pool->memory[pool->pos];
-      pool->pos += size;
+      pool->pos += asize;
     }
   return ret;
 }
+
 
 /**
  * Reallocate a block of memory obtained from the pool.
  * This is particularly efficient when growing or
  * shrinking the block that was last (re)allocated.
- * If the given block is not the most recenlty
+ * If the given block is not the most recently
  * (re)allocated block, the memory of the previous
  * allocation may be leaked until the pool is
  * destroyed (and copying the data maybe required).
  *
+ * @param pool memory pool to use for the operation
  * @param old the existing block
  * @param old_size the size of the existing block
  * @param new_size the new size of the block
  * @return new address of the block, or
- *         NULL if the pool cannot support new_size
- *         bytes (old continues to be valid for old_size)
+ *         NULL if the pool cannot support @a new_size
+ *         bytes (old continues to be valid for @a old_size)
  */
 void *
 MHD_pool_reallocate (struct MemoryPool *pool,
-                     void *old, 
-		     size_t old_size, 
+                     void *old,
+		     size_t old_size,
 		     size_t new_size)
 {
   void *ret;
+  size_t asize;
 
-  new_size = ROUND_TO_ALIGN (new_size);
-  if ((pool->end < old_size) || (pool->end < new_size))
+  asize = ROUND_TO_ALIGN (new_size);
+  if ( (0 == asize) &&
+       (0 != new_size) )
+    return NULL; /* new_size too close to SIZE_MAX */
+  if ( (pool->end < old_size) ||
+       (pool->end < asize) )
     return NULL;                /* unsatisfiable or bogus request */
 
-  if ((pool->pos >= old_size) && (&pool->memory[pool->pos - old_size] == old))
+  if ( (pool->pos >= old_size) &&
+       (&pool->memory[pool->pos - old_size] == old) )
     {
       /* was the previous allocation - optimize! */
-      if (pool->pos + new_size - old_size <= pool->end)
+      if (pool->pos + asize - old_size <= pool->end)
         {
           /* fits */
-          pool->pos += new_size - old_size;
-          if (new_size < old_size)      /* shrinking - zero again! */
-            memset (&pool->memory[pool->pos], 0, old_size - new_size);
+          pool->pos += asize - old_size;
+          if (asize < old_size)      /* shrinking - zero again! */
+            memset (&pool->memory[pool->pos],
+                    0,
+                    old_size - asize);
           return old;
         }
       /* does not fit */
       return NULL;
     }
-  if (new_size <= old_size)
+  if (asize <= old_size)
     return old;                 /* cannot shrink, no need to move */
-  if ((pool->pos + new_size >= pool->pos) &&
-      (pool->pos + new_size <= pool->end))
+  if ((pool->pos + asize >= pool->pos) &&
+      (pool->pos + asize <= pool->end))
     {
       /* fits */
       ret = &pool->memory[pool->pos];
-      memcpy (ret, old, old_size);
-      pool->pos += new_size;
+      if (0 != old_size)
+        memmove (ret,
+                 old,
+                 old_size);
+      pool->pos += asize;
       return ret;
     }
   /* does not fit */
   return NULL;
 }
 
+
 /**
  * Clear all entries from the memory pool except
- * for "keep" of the given "size".
+ * for @a keep of the given @a size. The pointer
+ * returned should be a buffer of @a new_size where
+ * the first @a copy_bytes are from @a keep.
  *
+ * @param pool memory pool to use for the operation
  * @param keep pointer to the entry to keep (maybe NULL)
- * @param size how many bytes need to be kept at this address
- * @return addr new address of "keep" (if it had to change)
+ * @param copy_bytes how many bytes need to be kept at this address
+ * @param new_size how many bytes should the allocation we return have?
+ *                 (should be larger or equal to @a copy_bytes)
+ * @return addr new address of @a keep (if it had to change)
  */
 void *
-MHD_pool_reset (struct MemoryPool *pool, 
-		void *keep, 
-		size_t size)
+MHD_pool_reset (struct MemoryPool *pool,
+		void *keep,
+		size_t copy_bytes,
+                size_t new_size)
 {
-  size = ROUND_TO_ALIGN (size);
-  if (keep != NULL)
+  if ( (NULL != keep) &&
+       (keep != pool->memory) )
     {
-      if (keep != pool->memory)
-        {
-          memmove (pool->memory, keep, size);
-          keep = pool->memory;
-        }
-      pool->pos = size;
+      if (0 != copy_bytes)
+        memmove (pool->memory,
+                 keep,
+                 copy_bytes);
+      keep = pool->memory;
     }
   pool->end = pool->size;
+  /* technically not needed, but safer to zero out */
+  if (pool->size > copy_bytes)
+    memset (&pool->memory[copy_bytes],
+            0,
+            pool->size - copy_bytes);
+  if (NULL != keep)
+    pool->pos = ROUND_TO_ALIGN (new_size);
   return keep;
 }
-
 
 
 /* end of memorypool.c */

@@ -1,7 +1,22 @@
+/* Feel free to use this example code in any way
+   you see fit (Public Domain) */
+
 #include <sys/types.h>
+#ifndef _WIN32
 #include <sys/select.h>
 #include <sys/socket.h>
+#else
+#include <winsock2.h>
+#endif
 #include <microhttpd.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
+#if defined(_MSC_VER) && _MSC_VER+0 <= 1800
+/* Substitution is OK while return value is not used */
+#define snprintf _snprintf
+#endif
 
 #define PORT            8888
 #define POSTBUFFERSIZE  512
@@ -21,7 +36,7 @@ struct connection_info_struct
 const char *askpage = "<html><body>\
                        What's your name, Sir?<br>\
                        <form action=\"/namepost\" method=\"post\">\
-                       <input name=\"name\" type=\"text\"\
+                       <input name=\"name\" type=\"text\">\
                        <input type=\"submit\" value=\" Send \"></form>\
                        </body></html>";
 
@@ -59,6 +74,11 @@ iterate_post (void *coninfo_cls, enum MHD_ValueKind kind, const char *key,
               size_t size)
 {
   struct connection_info_struct *con_info = coninfo_cls;
+  (void)kind;               /* Unused. Silent compiler warning. */
+  (void)filename;           /* Unused. Silent compiler warning. */
+  (void)content_type;       /* Unused. Silent compiler warning. */
+  (void)transfer_encoding;  /* Unused. Silent compiler warning. */
+  (void)off;                /* Unused. Silent compiler warning. */
 
   if (0 == strcmp (key, "name"))
     {
@@ -86,6 +106,9 @@ request_completed (void *cls, struct MHD_Connection *connection,
                    void **con_cls, enum MHD_RequestTerminationCode toe)
 {
   struct connection_info_struct *con_info = *con_cls;
+  (void)cls;         /* Unused. Silent compiler warning. */
+  (void)connection;  /* Unused. Silent compiler warning. */
+  (void)toe;         /* Unused. Silent compiler warning. */
 
   if (NULL == con_info)
     return;
@@ -108,6 +131,10 @@ answer_to_connection (void *cls, struct MHD_Connection *connection,
                       const char *version, const char *upload_data,
                       size_t *upload_data_size, void **con_cls)
 {
+  (void)cls;               /* Unused. Silent compiler warning. */
+  (void)url;               /* Unused. Silent compiler warning. */
+  (void)version;           /* Unused. Silent compiler warning. */
+
   if (NULL == *con_cls)
     {
       struct connection_info_struct *con_info;
@@ -168,14 +195,14 @@ main ()
 {
   struct MHD_Daemon *daemon;
 
-  daemon = MHD_start_daemon (MHD_USE_SELECT_INTERNALLY, PORT, NULL, NULL,
+  daemon = MHD_start_daemon (MHD_USE_AUTO | MHD_USE_INTERNAL_POLLING_THREAD, PORT, NULL, NULL,
                              &answer_to_connection, NULL,
                              MHD_OPTION_NOTIFY_COMPLETED, request_completed,
                              NULL, MHD_OPTION_END);
   if (NULL == daemon)
     return 1;
 
-  getchar ();
+  (void) getchar ();
 
   MHD_stop_daemon (daemon);
 

@@ -1,6 +1,6 @@
 /*
      This file is part of libmicrohttpd
-     (C) 2007, 2009, 2011 Christian Grothoff
+     Copyright (C) 2007, 2009, 2011 Christian Grothoff
 
      libmicrohttpd is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published
@@ -14,8 +14,8 @@
 
      You should have received a copy of the GNU General Public License
      along with libmicrohttpd; see the file COPYING.  If not, write to the
-     Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-     Boston, MA 02111-1307, USA.
+     Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+     Boston, MA 02110-1301, USA.
 */
 
 /**
@@ -28,7 +28,7 @@
  *        so the performance scores calculated with this code
  *        should NOT be used to compare with other HTTP servers
  *        (since MHD is actually better); only the relative
- *        scores between MHD versions are meaningful.  
+ *        scores between MHD versions are meaningful.
  * @author Christian Grothoff
  */
 
@@ -39,7 +39,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <pthread.h>
 #include "gauger.h"
+
+#if defined(CPU_COUNT) && (CPU_COUNT+0) < 2
+#undef CPU_COUNT
+#endif
+#if !defined(CPU_COUNT)
+#define CPU_COUNT 2
+#endif
 
 /**
  * How many rounds of operations do we do for each
@@ -50,7 +58,7 @@
 /**
  * How many requests do we do in parallel?
  */
-#define PAR 4
+#define PAR CPU_COUNT
 
 /**
  * Do we use HTTP 1.1?
@@ -67,18 +75,23 @@ static struct MHD_Response *response;
  */
 static unsigned long long start_time;
 
+/**
+ * Set to 1 if the worker threads are done.
+ */
+static volatile int signal_done;
+
 
 /**
- * Get the current timestamp 
+ * Get the current timestamp
  *
  * @return current time in ms
  */
-static unsigned long long 
+static unsigned long long
 now ()
 {
   struct timeval tv;
 
-  GETTIMEOFDAY (&tv, NULL);
+  gettimeofday (&tv, NULL);
   return (((unsigned long long) tv.tv_sec * 1000LL) +
 	  ((unsigned long long) tv.tv_usec / 1000LL));
 }
@@ -87,7 +100,7 @@ now ()
 /**
  * Start the timer.
  */
-static void 
+static void
 start_timer()
 {
   start_time = now ();
@@ -99,7 +112,7 @@ start_timer()
  *
  * @param desc description of the threading mode we used
  */
-static void 
+static void
 stop (const char *desc)
 {
   double rps = ((double) (PAR * ROUNDS * 1000)) / ((double) (now() - start_time));
@@ -117,12 +130,14 @@ stop (const char *desc)
 
 
 static size_t
-copyBuffer (void *ptr, 
-	    size_t size, size_t nmemb, 
+copyBuffer (void *ptr,
+	    size_t size, size_t nmemb,
 	    void *ctx)
 {
+  (void)ptr;(void)ctx;          /* Unused. Silent compiler warning. */
   return size * nmemb;
 }
+
 
 static int
 ahc_echo (void *cls,
@@ -136,6 +151,8 @@ ahc_echo (void *cls,
   static int ptr;
   const char *me = cls;
   int ret;
+  (void)url;(void)version;                      /* Unused. Silent compiler warning. */
+  (void)upload_data;(void)upload_data_size;     /* Unused. Silent compiler warning. */
 
   if (0 != strcmp (me, method))
     return MHD_NO;              /* unexpected method */
@@ -152,73 +169,75 @@ ahc_echo (void *cls,
 }
 
 
-static pid_t
-do_gets (int port)
+static void *
+thread_gets (void *param)
 {
-  pid_t ret;
   CURL *c;
   CURLcode errornum;
   unsigned int i;
-  unsigned int j;
-  pid_t par[PAR];
-  char url[64];
+  char * const url = (char*) param;
 
-  sprintf(url, "http://127.0.0.1:%d/hello_world", port);
-  
-  ret = fork ();
-  if (ret == -1) abort ();
-  if (ret != 0)
-    return ret;
-  for (j=0;j<PAR;j++)
+  for (i=0;i<ROUNDS;i++)
     {
-      par[j] = fork ();
-      if (par[j] == 0)
-	{
-	  for (i=0;i<ROUNDS;i++)
-	    {
-	      c = curl_easy_init ();
-	      curl_easy_setopt (c, CURLOPT_URL, url);
-	      curl_easy_setopt (c, CURLOPT_WRITEFUNCTION, &copyBuffer);
-	      curl_easy_setopt (c, CURLOPT_WRITEDATA, NULL);
-	      curl_easy_setopt (c, CURLOPT_FAILONERROR, 1);
-	      curl_easy_setopt (c, CURLOPT_TIMEOUT, 150L);
-	      if (oneone)
-		curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
-	      else
-		curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
-	      curl_easy_setopt (c, CURLOPT_CONNECTTIMEOUT, 15L);
-	      /* NOTE: use of CONNECTTIMEOUT without also
-		 setting NOSIGNAL results in really weird
-		 crashes on my system! */
-	      curl_easy_setopt (c, CURLOPT_NOSIGNAL, 1);
-	      if (CURLE_OK != (errornum = curl_easy_perform (c)))
-		{
-		  fprintf (stderr,
-			   "curl_easy_perform failed: `%s'\n",
-			   curl_easy_strerror (errornum));
-		  curl_easy_cleanup (c);
-		  _exit (1);
-		}
-	      curl_easy_cleanup (c);
-	    }
-	  _exit (0);
-	}
+      c = curl_easy_init ();
+      curl_easy_setopt (c, CURLOPT_URL, url);
+      curl_easy_setopt (c, CURLOPT_WRITEFUNCTION, &copyBuffer);
+      curl_easy_setopt (c, CURLOPT_WRITEDATA, NULL);
+      curl_easy_setopt (c, CURLOPT_FAILONERROR, 1);
+      curl_easy_setopt (c, CURLOPT_TIMEOUT, 150L);
+      if (oneone)
+        curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+      else
+        curl_easy_setopt (c, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
+      curl_easy_setopt (c, CURLOPT_CONNECTTIMEOUT, 150L);
+      /* NOTE: use of CONNECTTIMEOUT without also
+         setting NOSIGNAL results in really weird
+         crashes on my system! */
+      curl_easy_setopt (c, CURLOPT_NOSIGNAL, 1);
+      if (CURLE_OK != (errornum = curl_easy_perform (c)))
+        {
+          fprintf (stderr,
+                   "curl_easy_perform failed: `%s'\n",
+                   curl_easy_strerror (errornum));
+          curl_easy_cleanup (c);
+          return "curl error";
+        }
+      curl_easy_cleanup (c);
     }
-  for (j=0;j<PAR;j++)
-    waitpid (par[j], NULL, 0);
-  _exit (0);
+
+  return NULL;
 }
 
 
-static void 
-join_gets (pid_t pid)
+static void *
+do_gets (void * param)
 {
-  int status;
-  
-  status = 1;
-  waitpid (pid, &status, 0);
-  if (0 != status)
-    abort ();
+  int j;
+  pthread_t par[PAR];
+  char url[64];
+  int port = (int)(intptr_t)param;
+  char *err = NULL;
+
+  sprintf(url, "http://127.0.0.1:%d/hello_world", port);
+
+  for (j=0;j<PAR;j++)
+    {
+      if (0 != pthread_create(&par[j], NULL, &thread_gets, (void*)url))
+        {
+          for (j--; j >= 0; j--)
+            pthread_join(par[j], NULL);
+          return "pthread_create error";
+        }
+    }
+  for (j=0;j<PAR;j++)
+    {
+      char *ret_val;
+      if (0 != pthread_join(par[j], (void**)&ret_val) ||
+          NULL != ret_val)
+        err = ret_val;
+    }
+  signal_done = 1;
+  return err;
 }
 
 
@@ -226,15 +245,38 @@ static int
 testInternalGet (int port, int poll_flag)
 {
   struct MHD_Daemon *d;
+  const char * const test_desc = ((poll_flag & MHD_USE_AUTO) ? "internal thread with 'auto'" :
+                                  (poll_flag & MHD_USE_POLL) ? "internal thread with poll()" :
+                                  (poll_flag & MHD_USE_EPOLL) ? "internal thread with epoll" : "internal thread with select()");
+  const char * ret_val;
 
-  d = MHD_start_daemon (MHD_USE_SELECT_INTERNALLY | MHD_USE_DEBUG  | poll_flag,
+  if (MHD_NO != MHD_is_feature_supported(MHD_FEATURE_AUTODETECT_BIND_PORT))
+    port = 0;
+
+  signal_done = 0;
+  d = MHD_start_daemon (MHD_USE_INTERNAL_POLLING_THREAD | MHD_USE_ERROR_LOG  | poll_flag,
                         port, NULL, NULL, &ahc_echo, "GET", MHD_OPTION_END);
   if (d == NULL)
     return 1;
+  if (0 == port)
+    {
+      const union MHD_DaemonInfo *dinfo;
+      dinfo = MHD_get_daemon_info (d, MHD_DAEMON_INFO_BIND_PORT);
+      if (NULL == dinfo || 0 == dinfo->port)
+        { MHD_stop_daemon (d); return 32; }
+      port = (int)dinfo->port;
+    }
   start_timer ();
-  join_gets (do_gets (port));
-  stop (poll_flag ? "internal poll" : "internal select");
+  ret_val = do_gets ((void*)(intptr_t)port);
+  if (!ret_val)
+    stop (test_desc);
   MHD_stop_daemon (d);
+  if (ret_val)
+    {
+      fprintf (stderr,
+               "Error performing %s test: %s\n", test_desc, ret_val);
+      return 4;
+    }
   return 0;
 }
 
@@ -243,55 +285,124 @@ static int
 testMultithreadedGet (int port, int poll_flag)
 {
   struct MHD_Daemon *d;
+  const char * const test_desc = ((poll_flag & MHD_USE_AUTO) ? "internal thread with 'auto' and thread per connection" :
+                                  (poll_flag & MHD_USE_POLL) ? "internal thread with poll() and thread per connection" :
+                                  (poll_flag & MHD_USE_EPOLL) ? "internal thread with epoll and thread per connection"
+                                      : "internal thread with select() and thread per connection");
+  const char * ret_val;
 
-  d = MHD_start_daemon (MHD_USE_THREAD_PER_CONNECTION | MHD_USE_DEBUG  | poll_flag,
+  if (MHD_NO != MHD_is_feature_supported(MHD_FEATURE_AUTODETECT_BIND_PORT))
+    port = 0;
+
+  signal_done = 0;
+  d = MHD_start_daemon (MHD_USE_THREAD_PER_CONNECTION | MHD_USE_INTERNAL_POLLING_THREAD | MHD_USE_ERROR_LOG  | poll_flag,
                         port, NULL, NULL, &ahc_echo, "GET", MHD_OPTION_END);
   if (d == NULL)
     return 16;
+  if (0 == port)
+    {
+      const union MHD_DaemonInfo *dinfo;
+      dinfo = MHD_get_daemon_info (d, MHD_DAEMON_INFO_BIND_PORT);
+      if (NULL == dinfo || 0 == dinfo->port)
+        { MHD_stop_daemon (d); return 32; }
+      port = (int)dinfo->port;
+    }
   start_timer ();
-  join_gets (do_gets (port));
-  stop (poll_flag ? "thread with poll" : "thread with select");
+  ret_val = do_gets ((void*)(intptr_t)port);
+  if (!ret_val)
+    stop (test_desc);
   MHD_stop_daemon (d);
+  if (ret_val)
+    {
+      fprintf (stderr,
+               "Error performing %s test: %s\n", test_desc, ret_val);
+      return 4;
+    }
   return 0;
 }
+
 
 static int
 testMultithreadedPoolGet (int port, int poll_flag)
 {
   struct MHD_Daemon *d;
+  const char * const test_desc = ((poll_flag & MHD_USE_AUTO) ? "internal thread pool with 'auto'" :
+                                  (poll_flag & MHD_USE_POLL) ? "internal thread pool with poll()" :
+                                  (poll_flag & MHD_USE_EPOLL) ? "internal thread poll with epoll" : "internal thread pool with select()");
+  const char * ret_val;
 
-  d = MHD_start_daemon (MHD_USE_SELECT_INTERNALLY | MHD_USE_DEBUG | poll_flag,
+  if (MHD_NO != MHD_is_feature_supported(MHD_FEATURE_AUTODETECT_BIND_PORT))
+    port = 0;
+
+  signal_done = 0 ;
+  d = MHD_start_daemon (MHD_USE_INTERNAL_POLLING_THREAD | MHD_USE_ERROR_LOG | poll_flag,
                         port, NULL, NULL, &ahc_echo, "GET",
-                        MHD_OPTION_THREAD_POOL_SIZE, 4, MHD_OPTION_END);
+                        MHD_OPTION_THREAD_POOL_SIZE, CPU_COUNT, MHD_OPTION_END);
   if (d == NULL)
     return 16;
+  if (0 == port)
+    {
+      const union MHD_DaemonInfo *dinfo;
+      dinfo = MHD_get_daemon_info (d, MHD_DAEMON_INFO_BIND_PORT);
+      if (NULL == dinfo || 0 == dinfo->port)
+        { MHD_stop_daemon (d); return 32; }
+      port = (int)dinfo->port;
+    }
   start_timer ();
-  join_gets (do_gets (port));
-  stop (poll_flag ? "thread pool with poll" : "thread pool with select");
+  ret_val = do_gets ((void*)(intptr_t)port);
+  if (!ret_val)
+    stop (test_desc);
   MHD_stop_daemon (d);
+  if (ret_val)
+    {
+      fprintf (stderr,
+               "Error performing %s test: %s\n", test_desc, ret_val);
+      return 4;
+    }
   return 0;
 }
+
 
 static int
 testExternalGet (int port)
 {
   struct MHD_Daemon *d;
-  pid_t pid;
+  pthread_t pid;
   fd_set rs;
   fd_set ws;
   fd_set es;
-  int max;
+  MHD_socket max;
   struct timeval tv;
-  unsigned MHD_LONG_LONG tt;
+  MHD_UNSIGNED_LONG_LONG tt;
   int tret;
+  char *ret_val;
+  int ret = 0;
 
-  d = MHD_start_daemon (MHD_USE_DEBUG,
+  if (MHD_NO != MHD_is_feature_supported(MHD_FEATURE_AUTODETECT_BIND_PORT))
+    port = 0;
+
+  signal_done = 0;
+  d = MHD_start_daemon (MHD_USE_ERROR_LOG,
                         port, NULL, NULL, &ahc_echo, "GET", MHD_OPTION_END);
   if (d == NULL)
     return 256;
+  if (0 == port)
+    {
+      const union MHD_DaemonInfo *dinfo;
+      dinfo = MHD_get_daemon_info (d, MHD_DAEMON_INFO_BIND_PORT);
+      if (NULL == dinfo || 0 == dinfo->port)
+        { MHD_stop_daemon (d); return 32; }
+      port = (int)dinfo->port;
+    }
+  if (0 != pthread_create (&pid, NULL,
+			   &do_gets, (void*)(intptr_t)port))
+    {
+      MHD_stop_daemon(d);
+      return 512;
+    }
   start_timer ();
-  pid = do_gets (port);
-  while (0 == waitpid (pid, NULL, WNOHANG))
+
+  while (0 == signal_done)
     {
       max = 0;
       FD_ZERO (&rs);
@@ -306,11 +417,38 @@ testExternalGet (int port)
       if (MHD_YES != tret) tt = 1;
       tv.tv_sec = tt / 1000;
       tv.tv_usec = 1000 * (tt % 1000);
-      select (max + 1, &rs, &ws, &es, &tv);
-      MHD_run (d);
+      if (-1 == select (max + 1, &rs, &ws, &es, &tv))
+	{
+#ifdef MHD_POSIX_SOCKETS
+          if (EINTR == errno)
+            continue;
+          fprintf (stderr,
+                   "select failed: %s\n",
+                   strerror (errno));
+#else
+          if (WSAEINVAL == WSAGetLastError() && 0 == rs.fd_count && 0 == ws.fd_count && 0 == es.fd_count)
+            {
+              Sleep (1000);
+              continue;
+            }
+#endif
+	  ret |= 1024;
+	  break;
+	}
+      MHD_run_from_select(d, &rs, &ws, &es);
     }
+
   stop ("external select");
   MHD_stop_daemon (d);
+  if (0 != pthread_join(pid, (void**)&ret_val) ||
+      NULL != ret_val)
+    {
+      fprintf (stderr,
+               "%s\n", ret_val);
+      ret |= 8;
+    }
+  if (ret)
+    fprintf (stderr, "Error performing test.\n");
   return 0;
 }
 
@@ -319,9 +457,13 @@ int
 main (int argc, char *const *argv)
 {
   unsigned int errorCount = 0;
-  int port = 1081;
+  int port = 1100;
+  (void)argc;   /* Unused. Silent compiler warning. */
 
-  oneone = NULL != strstr (argv[0], "11");
+  oneone = (NULL != strrchr (argv[0], (int) '/')) ?
+    (NULL != strstr (strrchr (argv[0], (int) '/'), "11")) : 0;
+  if (oneone)
+    port += 15;
   if (0 != curl_global_init (CURL_GLOBAL_WIN32))
     return 2;
   response = MHD_create_response_from_buffer (strlen ("/hello_world"),
@@ -331,9 +473,20 @@ main (int argc, char *const *argv)
   errorCount += testMultithreadedGet (port++, 0);
   errorCount += testMultithreadedPoolGet (port++, 0);
   errorCount += testExternalGet (port++);
-  errorCount += testInternalGet (port++, MHD_USE_POLL);
-  errorCount += testMultithreadedGet (port++, MHD_USE_POLL);
-  errorCount += testMultithreadedPoolGet (port++, MHD_USE_POLL);
+  errorCount += testInternalGet (port++, MHD_USE_AUTO);
+  errorCount += testMultithreadedGet (port++, MHD_USE_AUTO);
+  errorCount += testMultithreadedPoolGet (port++, MHD_USE_AUTO);
+  if (MHD_YES == MHD_is_feature_supported(MHD_FEATURE_POLL))
+    {
+      errorCount += testInternalGet (port++, MHD_USE_POLL);
+      errorCount += testMultithreadedGet (port++, MHD_USE_POLL);
+      errorCount += testMultithreadedPoolGet (port++, MHD_USE_POLL);
+    }
+  if (MHD_YES == MHD_is_feature_supported(MHD_FEATURE_EPOLL))
+    {
+      errorCount += testInternalGet (port++, MHD_USE_EPOLL);
+      errorCount += testMultithreadedPoolGet (port++, MHD_USE_EPOLL);
+    }
   MHD_destroy_response (response);
   if (errorCount != 0)
     fprintf (stderr, "Error (code: %u)\n", errorCount);

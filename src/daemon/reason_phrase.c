@@ -1,6 +1,6 @@
 /*
      This file is part of libmicrohttpd
-     (C) 2007, 2011 Christian Grothoff
+     Copyright (C) 2007, 2011, 2017 Christian Grothoff, Karlson2k (Evgeny Grin)
 
      This library is free software; you can redistribute it and/or
      modify it under the terms of the GNU Lesser General Public
@@ -17,29 +17,31 @@
      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 */
-
 /**
  * @file reason_phrase.c
  * @brief  Tables of the string response phrases
  * @author Elliot Glaysher
  * @author Christian Grothoff (minor code clean up)
+ * @author Karlson2k (Evgeny Grin)
  */
-
-#include "reason_phrase.h"
+#include "platform.h"
+#include "microhttpd.h"
 
 #ifndef NULL
-#define NULL (void*)0
+#define NULL ((void*)0)
 #endif
 
-static const char *invalid_hundred[] = { NULL };
+static const char *const invalid_hundred[] = {
+  NULL
+};
 
-static const char *one_hundred[] = {
+static const char *const one_hundred[] = {
   "Continue",
   "Switching Protocols",
   "Processing"
 };
 
-static const char *two_hundred[] = {
+static const char *const two_hundred[] = {
   "OK",
   "Created",
   "Accepted",
@@ -47,21 +49,41 @@ static const char *two_hundred[] = {
   "No Content",
   "Reset Content",
   "Partial Content",
-  "Multi Status"
+  "Multi-Status",
+  "Already Reported",
+  "Unknown",
+  "Unknown", /* 210 */
+  "Unknown",
+  "Unknown",
+  "Unknown",
+  "Unknown",
+  "Unknown", /* 215 */
+  "Unknown",
+  "Unknown",
+  "Unknown",
+  "Unknown",
+  "Unknown", /* 220 */
+  "Unknown",
+  "Unknown",
+  "Unknown",
+  "Unknown",
+  "Unknown", /* 225 */
+  "IM Used"
 };
 
-static const char *three_hundred[] = {
+static const char *const three_hundred[] = {
   "Multiple Choices",
   "Moved Permanently",
-  "Moved Temporarily",
+  "Found",
   "See Other",
   "Not Modified",
   "Use Proxy",
   "Switch Proxy",
-  "Temporary Redirect"
+  "Temporary Redirect",
+  "Permanent Redirect"
 };
 
-static const char *four_hundred[] = {
+static const char *const four_hundred[] = {
   "Bad Request",
   "Unauthorized",
   "Payment Required",
@@ -70,30 +92,30 @@ static const char *four_hundred[] = {
   "Method Not Allowed",
   "Not Acceptable",
   "Proxy Authentication Required",
-  "Request Time-out",
+  "Request Timeout",
   "Conflict",
   "Gone",
   "Length Required",
   "Precondition Failed",
-  "Request Entity Too Large",
-  "Request-URI Too Large",
+  "Payload Too Large",
+  "URI Too Long",
   "Unsupported Media Type",
-  "Requested Range Not Satisfiable",
+  "Range Not Satisfiable",
   "Expectation Failed",
   "Unknown",
   "Unknown",
   "Unknown", /* 420 */
-  "Unknown",
+  "Misdirected Request",
   "Unprocessable Entity",
   "Locked",
   "Failed Dependency",
   "Unordered Collection",
   "Upgrade Required",
   "Unknown",
-  "Unknown",
-  "Unknown",
+  "Precondition Required",
+  "Too Many Requests",
   "Unknown", /* 430 */
-  "Unknown",
+  "Request Header Fields Too Large",
   "Unknown",
   "Unknown",
   "Unknown",
@@ -112,28 +134,30 @@ static const char *four_hundred[] = {
   "Unknown",
   "Unknown",
   "Retry With",
-  "Blocked by Windows Parental Controls" /* 450 */
+  "Blocked by Windows Parental Controls", /* 450 */
+  "Unavailable For Legal Reasons"
 };
 
-static const char *five_hundred[] = {
+static const char *const five_hundred[] = {
   "Internal Server Error",
   "Not Implemented",
   "Bad Gateway",
   "Service Unavailable",
-  "Gateway Time-out",
-  "HTTP Version not supported",
+  "Gateway Timeout",
+  "HTTP Version Not Supported",
   "Variant Also Negotiates",
   "Insufficient Storage",
-  "Unknown",
+  "Loop Detected",
   "Bandwidth Limit Exceeded",
-  "Not Extended"
+  "Not Extended",
+  "Network Authentication Required"
 };
 
 
 struct MHD_Reason_Block
 {
-  unsigned int max;
-  const char **data;
+  size_t max;
+  const char *const*data;
 };
 
 #define BLOCK(m) { (sizeof(m) / sizeof(char*)), m }
@@ -147,10 +171,13 @@ static const struct MHD_Reason_Block reasons[] = {
   BLOCK (five_hundred),
 };
 
+
 const char *
 MHD_get_reason_phrase_for (unsigned int code)
 {
-  if ((code >= 100 && code < 600) && (reasons[code / 100].max > code % 100))
+  if ( (code >= 100) &&
+       (code < 600) &&
+       (reasons[code / 100].max > (code % 100)) )
     return reasons[code / 100].data[code % 100];
   return "Unknown";
 }
