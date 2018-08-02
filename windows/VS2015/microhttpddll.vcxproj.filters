@@ -17,7 +17,6 @@
     <ClCompile Include="..\..\src\daemon\mhd_threads.c" />
     <ClCompile Include="..\..\src\daemon\mhd_compat.c" />
     <ClCompile Include="..\..\src\daemon\mhd_itc.c" />
-    <ClCompile Include="..\..\src\daemon\daemon_test.c" />
     <ClCompile Include="..\..\src\daemon\mhd_mono_clock.c" />
     <ClCompile Include="..\..\src\daemon\tsearch.c" />
     <ClCompile Include="..\..\src\daemon\sysfdsetsize.c" />

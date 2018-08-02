@@ -23,7 +23,6 @@
     <ClCompile Include="..\..\src\daemon\basicauth.c" />
     <ClCompile Include="..\..\src\daemon\connection.c" />
     <ClCompile Include="..\..\src\daemon\daemon.c" />
-    <ClCompile Include="..\..\src\daemon\daemon_test.c" />
     <ClCompile Include="..\..\src\daemon\digestauth.c" />
     <ClCompile Include="..\..\src\daemon\internal.c" />
     <ClCompile Include="..\..\src\daemon\md5.c" />

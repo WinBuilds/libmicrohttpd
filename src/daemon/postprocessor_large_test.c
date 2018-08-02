@@ -24,10 +24,8 @@
  * @author Christian Grothoff
  */
 
-#include "platform.h"
 #include "microhttpd.h"
 #include "internal.h"
-
 #include "mhd_compat.h"
 
 static int

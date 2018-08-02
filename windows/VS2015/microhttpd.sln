@@ -18,6 +18,9 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "examples", "examples", "{93D826BF-8332-49C6-BA84-EE5CB9972095}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "microhttpddll", "microhttpddll.vcxproj", "{AC9B29D7-00D6-46EC-A193-CDAD55ED568F}"
+	ProjectSection(ProjectDependencies) = postProject
+		{F2E5502F-1643-4FA5-AACB-87F05F0E9868} = {F2E5502F-1643-4FA5-AACB-87F05F0E9868}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

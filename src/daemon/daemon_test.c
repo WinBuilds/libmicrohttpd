@@ -24,18 +24,17 @@
  * @author Christian Grothoff
  */
 
-#include "platform.h"
-#include "microhttpd.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 
-#ifdef WINDOWS
+#ifdef _WIN32
 #include <ws2tcpip.h>
 #else
 #include <unistd.h>
 #endif
 
+#include "microhttpd.h"
 
 static int
 testStartError ()

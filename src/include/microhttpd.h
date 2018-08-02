@@ -100,10 +100,12 @@ extern "C"
    includes won't be used (which might be a good idea, especially
    on platforms where they do not exist).
    */
+
+#include <sys/types.h>
+
 #ifndef MHD_PLATFORM_H
 #include <stdarg.h>
 #include <stdint.h>
-#include <sys/types.h>
 #if defined(_WIN32) && !defined(__CYGWIN__)
 #include <ws2tcpip.h>
 #if defined(_MSC_FULL_VER) && !defined (_SSIZE_T_DEFINED)
@@ -161,7 +163,6 @@ typedef intptr_t ssize_t;
 #define MHD_CONTENT_READER_END_WITH_ERROR (((size_t) -1LL) - 1)
 #endif
 
- /*
 #ifndef _MHD_EXTERN
 #if defined(_WIN32) && defined(MHD_W32LIB)
 #define _MHD_EXTERN extern
@@ -171,7 +172,6 @@ typedef intptr_t ssize_t;
 #define _MHD_EXTERN extern
 #endif
 #endif
-*/
 
 #ifndef MHD_SOCKET_DEFINED
 /**
@@ -2563,9 +2563,9 @@ MHD_suspend_connection (struct MHD_Connection *connection);
  * result in undefined behavior.
  *
  * If you are using this function in ``external'' select mode, you must
- * make sure to run #MHD_run() and #MHD_get_timeout() afterwards (before 
+ * make sure to run #MHD_run() and #MHD_get_timeout() afterwards (before
  * again calling #MHD_get_fdset()), as otherwise the change may not be
- * reflected in the set returned by #MHD_get_fdset() and you may end up 
+ * reflected in the set returned by #MHD_get_fdset() and you may end up
  * with a connection that is stuck until the next network activity.
  *
  * @param connection the connection to resume

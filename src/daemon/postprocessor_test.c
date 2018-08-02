@@ -24,13 +24,12 @@
  * @author Christian Grothoff
  */
 
-#include "platform.h"
-#include "microhttpd.h"
-#include "internal.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 
+#include "microhttpd.h"
+#include "internal.h"
 #include "mhd_compat.h"
 
 /**
