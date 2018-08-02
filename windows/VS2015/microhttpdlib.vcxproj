@@ -119,19 +119,19 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <IntDir>$(SolutionDir)../../../../build_msvc14_$(Platform)/$(Configuration)/obj/$(ProjectName)/</IntDir>
-    <OutDir>$(SolutionDir)../../../../build_msvc14_$(Platform)/$(Configuration)/bin/</OutDir>
+    <OutDir>$(SolutionDir)../../../../build_msvc14_$(Platform)/$(Configuration)/lib/</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <IntDir>$(SolutionDir)../../../../build_msvc14_$(Platform)/$(Configuration)/obj/$(ProjectName)/</IntDir>
-    <OutDir>$(SolutionDir)../../../../build_msvc14_$(Platform)/$(Configuration)/bin/</OutDir>
+    <OutDir>$(SolutionDir)../../../../build_msvc14_$(Platform)/$(Configuration)/lib/</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <IntDir>$(SolutionDir)../../../../build_msvc14_$(Platform)/$(Configuration)/obj/$(ProjectName)/</IntDir>
-    <OutDir>$(SolutionDir)../../../../build_msvc14_$(Platform)/$(Configuration)/bin/</OutDir>
+    <OutDir>$(SolutionDir)../../../../build_msvc14_$(Platform)/$(Configuration)/lib/</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <IntDir>$(SolutionDir)../../../../build_msvc14_$(Platform)/$(Configuration)/obj/$(ProjectName)/</IntDir>
-    <OutDir>$(SolutionDir)../../../../build_msvc14_$(Platform)/$(Configuration)/bin/</OutDir>
+    <OutDir>$(SolutionDir)../../../../build_msvc14_$(Platform)/$(Configuration)/lib/</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
