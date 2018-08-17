@@ -143,6 +143,7 @@
       <AdditionalIncludeDirectories>$(SolutionDir)..;$(SolutionDir)..\..\src;$(SolutionDir)..\..\src\include;$(OutDir)..\include;$(OutDir)..\include\pthread_win32;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4996</DisableSpecificWarnings>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -164,6 +165,7 @@ copy "$(SolutionDir)..\..\src\include\microhttpd.h" "$(SolutionDir)..\..\..\..\b
       <AdditionalIncludeDirectories>$(SolutionDir)..;$(SolutionDir)..\..\src;$(SolutionDir)..\..\src\include;$(OutDir)..\include;$(OutDir)..\include\pthread_win32;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4996</DisableSpecificWarnings>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
