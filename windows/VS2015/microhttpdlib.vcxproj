@@ -71,6 +71,7 @@
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>microhttpdlib</RootNamespace>
     <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
+    <ProjectRoot>$(WINBUILDS_ROOT)</ProjectRoot>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -118,20 +119,20 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <IntDir>$(SolutionDir)../../../../build_msvc14_$(Platform)/$(Configuration)/obj/$(ProjectName)/</IntDir>
-    <OutDir>$(SolutionDir)../../../../build_msvc14_$(Platform)/$(Configuration)/lib/</OutDir>
+    <IntDir>$(ProjectRoot)build_msvc14_$(Platform)/$(Configuration)/obj/$(ProjectName)/</IntDir>
+    <OutDir>$(ProjectRoot)build_msvc14_$(Platform)/$(Configuration)/lib/</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <IntDir>$(SolutionDir)../../../../build_msvc14_$(Platform)/$(Configuration)/obj/$(ProjectName)/</IntDir>
-    <OutDir>$(SolutionDir)../../../../build_msvc14_$(Platform)/$(Configuration)/lib/</OutDir>
+    <IntDir>$(ProjectRoot)build_msvc14_$(Platform)/$(Configuration)/obj/$(ProjectName)/</IntDir>
+    <OutDir>$(ProjectRoot)build_msvc14_$(Platform)/$(Configuration)/lib/</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IntDir>$(SolutionDir)../../../../build_msvc14_$(Platform)/$(Configuration)/obj/$(ProjectName)/</IntDir>
-    <OutDir>$(SolutionDir)../../../../build_msvc14_$(Platform)/$(Configuration)/lib/</OutDir>
+    <IntDir>$(ProjectRoot)build_msvc14_$(Platform)/$(Configuration)/obj/$(ProjectName)/</IntDir>
+    <OutDir>$(ProjectRoot)build_msvc14_$(Platform)/$(Configuration)/lib/</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IntDir>$(SolutionDir)../../../../build_msvc14_$(Platform)/$(Configuration)/obj/$(ProjectName)/</IntDir>
-    <OutDir>$(SolutionDir)../../../../build_msvc14_$(Platform)/$(Configuration)/lib/</OutDir>
+    <IntDir>$(ProjectRoot)build_msvc14_$(Platform)/$(Configuration)/obj/$(ProjectName)/</IntDir>
+    <OutDir>$(ProjectRoot)build_msvc14_$(Platform)/$(Configuration)/lib/</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -150,8 +151,8 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
-      <Command>mkdir "$(SolutionDir)..\..\..\..\build_msvc14_$(Platform)\$(Configuration)\include\microhttpd"
-copy "$(SolutionDir)..\..\src\include\microhttpd.h" "$(SolutionDir)..\..\..\..\build_msvc14_$(Platform)\$(Configuration)\include\microhttpd\"</Command>
+      <Command>mkdir "$(ProjectRoot)build_msvc14_$(Platform)\$(Configuration)\include\microhttpd"
+copy "$(SolutionDir)..\..\src\include\microhttpd.h" "$(ProjectRoot)build_msvc14_$(Platform)\$(Configuration)\include\microhttpd\"</Command>
       <Message>copying include header files..</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>
@@ -172,8 +173,8 @@ copy "$(SolutionDir)..\..\src\include\microhttpd.h" "$(SolutionDir)..\..\..\..\b
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
-      <Command>mkdir "$(SolutionDir)..\..\..\..\build_msvc14_$(Platform)\$(Configuration)\include\microhttpd"
-copy "$(SolutionDir)..\..\src\include\microhttpd.h" "$(SolutionDir)..\..\..\..\build_msvc14_$(Platform)\$(Configuration)\include\microhttpd\"</Command>
+      <Command>mkdir "$(ProjectRoot)build_msvc14_$(Platform)\$(Configuration)\include\microhttpd"
+copy "$(SolutionDir)..\..\src\include\microhttpd.h" "$(ProjectRoot)build_msvc14_$(Platform)\$(Configuration)\include\microhttpd\"</Command>
       <Message>copying include header files..</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>
@@ -197,8 +198,8 @@ copy "$(SolutionDir)..\..\src\include\microhttpd.h" "$(SolutionDir)..\..\..\..\b
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
     <PostBuildEvent>
-      <Command>mkdir "$(SolutionDir)..\..\..\..\build_msvc14_$(Platform)\$(Configuration)\include\microhttpd"
-copy "$(SolutionDir)..\..\src\include\microhttpd.h" "$(SolutionDir)..\..\..\..\build_msvc14_$(Platform)\$(Configuration)\include\microhttpd\"</Command>
+      <Command>mkdir "$(ProjectRoot)build_msvc14_$(Platform)\$(Configuration)\include\microhttpd"
+copy "$(SolutionDir)..\..\src\include\microhttpd.h" "$(ProjectRoot)build_msvc14_$(Platform)\$(Configuration)\include\microhttpd\"</Command>
       <Message>copying include header files..</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>
@@ -222,8 +223,8 @@ copy "$(SolutionDir)..\..\src\include\microhttpd.h" "$(SolutionDir)..\..\..\..\b
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
     <PostBuildEvent>
-      <Command>mkdir "$(SolutionDir)..\..\..\..\build_msvc14_$(Platform)\$(Configuration)\include\microhttpd"
-copy "$(SolutionDir)..\..\src\include\microhttpd.h" "$(SolutionDir)..\..\..\..\build_msvc14_$(Platform)\$(Configuration)\include\microhttpd\"</Command>
+      <Command>mkdir "$(ProjectRoot)build_msvc14_$(Platform)\$(Configuration)\include\microhttpd"
+copy "$(SolutionDir)..\..\src\include\microhttpd.h" "$(ProjectRoot)build_msvc14_$(Platform)\$(Configuration)\include\microhttpd\"</Command>
       <Message>copying include header files..</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>
